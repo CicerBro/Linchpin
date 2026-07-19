@@ -1,0 +1,287 @@
+:root {
+  color-scheme: light;
+  --bg: #f6f5f2;
+  --panel: #ffffff;
+  --ink: #1c1b19;
+  --muted: #6b6560;
+  --line: #ddd8d0;
+  --accent: #c45c26;
+  --danger: #b3261e;
+  --radius: 8px;
+  font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 360px;
+  max-width: 420px;
+  max-height: 640px;
+  overflow: auto;
+}
+
+#app {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+
+.panel h2 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0;
+}
+
+input[type='text'],
+input[type='search'],
+select,
+textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+  background: #fff;
+  color: var(--ink);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 72px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+button {
+  font: inherit;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #fff;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: #bbb;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+button.danger {
+  color: var(--danger);
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.list-header h2 {
+  margin: 0;
+}
+
+.list-header input {
+  width: 140px;
+}
+
+.tag-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.tag-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+
+.tag-list li:first-child {
+  border-top: none;
+}
+
+.tag-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.tag-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.muted {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.empty {
+  color: var(--muted);
+  padding: 8px 0 !important;
+}
+
+.help {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.status {
+  background: #e8f5e9;
+  border: 1px solid #a5d6a7;
+  color: #1b5e20;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.help.warn {
+  color: #8a4b08;
+}
+
+.account-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.account-list li {
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.account-list li:first-child {
+  border-top: none;
+}
+
+.account-list li.active-account {
+  background: #fff7f0;
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-radius: 6px;
+}
+
+.account-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.account-actions {
+  flex-wrap: wrap;
+}
+
+.account-form h3 {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+}
+
+.pill {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #eee;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pill.status-active {
+  background: #e8f5e9;
+  color: #1b5e20;
+}
+
+.pill.status-expired {
+  background: #ffebee;
+  color: #b71c1c;
+}
+
+.totp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.totp-code {
+  font: 700 1.1rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.12em;
+  padding: 4px 8px;
+  background: #1c1b19;
+  color: #f6f5f2;
+  border-radius: 4px;
+}

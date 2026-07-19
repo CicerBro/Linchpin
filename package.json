@@ -1,0 +1,23 @@
+{
+  "name": "rivet",
+  "description": "Personal Brave MV3 Reddit utility — tags, ignore, account switcher, infinite scroll. Not affiliated with Reddit or RES.",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "compile": "tsc --noEmit",
+    "export:res-tags": "node scripts/export-res-tags.mjs",
+    "postinstall": "wxt prepare"
+  },
+  "devDependencies": {
+    "classic-level": "^3.0.0",
+    "typescript": "^5.9.3",
+    "wxt": "^0.20.27"
+  }
+}
