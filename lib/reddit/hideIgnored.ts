@@ -1,8 +1,10 @@
 import type { Settings, UserTagMap } from '../types';
 import { isIgnoredTag, normalizeUsername } from '../storage';
+import { findAuthorNodes } from './authors';
 import { detectRedditUi } from './detect';
 
 const HIDDEN_ATTR = 'data-rivet-hidden';
+const REVEALED_ATTR = 'data-rivet-revealed';
 const BAR_CLASS = 'rivet-ignored-bar';
 
 function findContainer(authorEl: HTMLElement): HTMLElement | null {
@@ -57,6 +59,13 @@ function ensureRevealStyles(): void {
   document.documentElement.appendChild(style);
 }
 
+function unhideContainer(container: Element): void {
+  container.classList.remove('rivet-ignored-collapsed');
+  container.removeAttribute(HIDDEN_ATTR);
+  container.removeAttribute(REVEALED_ATTR);
+  container.querySelector(`.${BAR_CLASS}`)?.remove();
+}
+
 function makeBar(username: string, container: HTMLElement): HTMLElement {
   const bar = document.createElement('div');
   bar.className = BAR_CLASS;
@@ -66,11 +75,23 @@ function makeBar(username: string, container: HTMLElement): HTMLElement {
   btn.textContent = 'Show anyway';
   btn.addEventListener('click', () => {
     container.classList.remove('rivet-ignored-collapsed');
-    container.setAttribute(HIDDEN_ATTR, 'revealed');
+    // Keep username on HIDDEN_ATTR so undo-ignore can still clear this container
+    container.setAttribute(REVEALED_ATTR, '1');
     bar.remove();
   });
   bar.appendChild(btn);
   return bar;
+}
+
+/** Clear collapse/bar for containers whose user is no longer ignored. */
+function clearStaleHides(tags: UserTagMap): void {
+  document.querySelectorAll(`[${HIDDEN_ATTR}]`).forEach((el) => {
+    const username = normalizeUsername(el.getAttribute(HIDDEN_ATTR) || '');
+    // Legacy: older builds stored "revealed" in HIDDEN_ATTR
+    if (!username || username === 'revealed' || !isIgnoredTag(tags[username])) {
+      unhideContainer(el);
+    }
+  });
 }
 
 export function applyIgnoreHides(
@@ -81,37 +102,20 @@ export function applyIgnoreHides(
   ensureRevealStyles();
 
   if (!settings.enableIgnore) {
-    document.querySelectorAll(`[${HIDDEN_ATTR}]`).forEach((el) => {
-      el.classList.remove('rivet-ignored-collapsed');
-      el.removeAttribute(HIDDEN_ATTR);
-      el.querySelector(`.${BAR_CLASS}`)?.remove();
-    });
+    document.querySelectorAll(`[${HIDDEN_ATTR}]`).forEach(unhideContainer);
     return;
   }
 
-  const authorLinks = (root instanceof Element || root === document
-    ? (root as Document | Element).querySelectorAll<HTMLElement>(
-        'a.author, a[href*="/user/"], a[href*="/u/"], [data-testid="post_author_link"], [data-testid="comment_author_link"]',
-      )
-    : []) as NodeListOf<HTMLElement> | HTMLElement[];
+  clearStaleHides(tags);
 
-  const list =
-    authorLinks instanceof NodeList
-      ? Array.from(authorLinks)
-      : Array.from(authorLinks);
-
-  for (const authorEl of list) {
-    const href = authorEl.getAttribute('href') || '';
-    const match = href.match(/\/(?:user|u)\/([^/?#]+)/i);
-    const username = normalizeUsername(
-      match ? decodeURIComponent(match[1]) : authorEl.textContent || '',
-    );
-    if (!username) continue;
+  for (const { username, element: authorEl } of findAuthorNodes(root)) {
     const tag = tags[username];
     if (!isIgnoredTag(tag)) continue;
 
     const container = findContainer(authorEl);
     if (!container) continue;
+    if (container.hasAttribute(REVEALED_ATTR)) continue;
+    // Legacy revealed marker
     if (container.getAttribute(HIDDEN_ATTR) === 'revealed') continue;
     if (container.classList.contains('rivet-ignored-collapsed')) continue;
 

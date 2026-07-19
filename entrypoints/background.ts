@@ -5,9 +5,24 @@ import {
 import { generateTotp } from '../lib/accounts/totp';
 import type { RivetMessage } from '../lib/accounts/messages';
 import { getAccountStore } from '../lib/storage';
+import { ensureResSeedImported } from '../lib/import/ensureSeed';
 
 export default defineBackground(() => {
   console.info('[rivet] background ready', { id: browser.runtime.id });
+
+  const runSeed = () => {
+    void ensureResSeedImported().then((result) => {
+      if (result.status === 'imported') {
+        console.info('[rivet] brought over RES tags', result);
+      } else if (result.status === 'error') {
+        console.warn('[rivet] RES seed import failed', result.error);
+      }
+    });
+  };
+
+  runSeed();
+  browser.runtime.onInstalled.addListener(runSeed);
+  browser.runtime.onStartup.addListener(runSeed);
 
   browser.runtime.onMessage.addListener((message: RivetMessage) => {
     if (!message || typeof message !== 'object' || !('type' in message)) {

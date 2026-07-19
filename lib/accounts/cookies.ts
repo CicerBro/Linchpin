@@ -13,9 +13,11 @@ type BrowserCookie = {
   storeId?: string;
 };
 
-/** Only Reddit cookie domains we are allowed to touch. */
-const REDDIT_DOMAIN_RE =
-  /(^|\.)reddit\.com$|(^|\.)redd\.it$|(^|\.)redditmedia\.com$|(^|\.)redditstatic\.com$/i;
+/**
+ * Only *.reddit.com cookie domains — matches host_permissions in wxt.config.ts.
+ * Do not touch redd.it / redditmedia / redditstatic (no host permission).
+ */
+const REDDIT_DOMAIN_RE = /(^|\.)reddit\.com$/i;
 
 export function isRedditCookieDomain(domain: string): boolean {
   const d = domain.replace(/^\./, '').toLowerCase();
@@ -26,7 +28,6 @@ const URLS_TO_SCAN = [
   'https://www.reddit.com/',
   'https://old.reddit.com/',
   'https://reddit.com/',
-  'https://www.redd.it/',
 ];
 
 function cookieUrl(c: {
@@ -158,14 +159,13 @@ export async function injectRedditCookies(
   return { set, failed };
 }
 
-/** Heuristic: session looks present if we have reddit_session or token_v2. */
+/**
+ * Heuristic: real login cookies only.
+ * `session_tracker` is too weak — logged-out users often still have it.
+ */
 export function sessionLooksValid(cookies: StoredCookie[]): boolean {
   const names = new Set(cookies.map((c) => c.name));
-  return (
-    names.has('reddit_session') ||
-    names.has('token_v2') ||
-    names.has('session_tracker')
-  );
+  return names.has('reddit_session') || names.has('token_v2');
 }
 
 export async function reloadRedditTabs(): Promise<number> {

@@ -95,7 +95,10 @@ export async function switchToAccount(accountId: string): Promise<SwitchResult> 
     };
   }
 
-  // Mark previous active as saved (not active)
+  // Snapshot current cookies so we can restore if inject fails after clear.
+  const previousCookies = await captureRedditCookies();
+
+  // Mark previous active as saved (not active) — only persist after a successful inject.
   for (const a of store.accounts) {
     if (a.id === store.activeAccountId && a.sessionStatus === 'active') {
       a.sessionStatus = a.cookies.length ? 'saved' : 'unknown';
@@ -103,7 +106,36 @@ export async function switchToAccount(accountId: string): Promise<SwitchResult> 
   }
 
   await clearRedditCookies();
-  const { set, failed } = await injectRedditCookies(account.cookies);
+
+  let set = 0;
+  let failed = 0;
+  try {
+    const result = await injectRedditCookies(account.cookies);
+    set = result.set;
+    failed = result.failed;
+  } catch {
+    // Treat unexpected inject errors as total failure so we roll back.
+    set = 0;
+    failed = account.cookies.length || 1;
+  }
+
+  // Inject failed badly (nothing set) — restore prior cookies so the user is not logged out.
+  if (set === 0) {
+    if (previousCookies.length > 0) {
+      await injectRedditCookies(previousCookies);
+    }
+    return {
+      ok: false,
+      accountId,
+      cookiesSet: 0,
+      cookiesFailed: failed,
+      tabsReloaded: 0,
+      needsRelogin: true,
+      message:
+        'Switch failed — previous session restored. Re-capture this account or log in and Capture session.',
+    };
+  }
+
   const tabsReloaded = await reloadRedditTabs();
 
   const looksOk = sessionLooksValid(account.cookies) && set > 0;
@@ -114,7 +146,7 @@ export async function switchToAccount(accountId: string): Promise<SwitchResult> 
 
   const needsRelogin = !looksOk || failed > set;
   return {
-    ok: set > 0,
+    ok: true,
     accountId,
     cookiesSet: set,
     cookiesFailed: failed,

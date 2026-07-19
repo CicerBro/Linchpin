@@ -1,6 +1,6 @@
 # Rivet
 
-Personal [Manifest V3](https://developer.chrome.com/docs/extensions/mv3) extension for **Brave** (Chromium), built with [WXT](https://wxt.dev). A small Reddit utility for tags, ignore/hide, account switching, old-Reddit infinite scroll, subreddit last-visited hints, and new-comment counts — without the ~200 MB RES footprint.
+Personal [Manifest V3](https://developer.chrome.com/docs/extensions/mv3) extension for **Brave** (Chromium) and **Firefox**, built with [WXT](https://wxt.dev). A small Reddit utility for tags, ignore/hide, account switching, old-Reddit infinite scroll, subreddit last-visited hints, and new-comment counts — without the ~200 MB RES footprint.
 
 **Not affiliated with Reddit or RES.** Personal-use sideload; secrets stay on your device.
 
@@ -16,6 +16,7 @@ Personal [Manifest V3](https://developer.chrome.com/docs/extensions/mv3) extensi
 | New comment counts | Banner + highlight on revisited comment threads |
 | Tag management popup | Add / edit / delete / search / color / ignore |
 | RES import | Merge tags from Brave RES LevelDB export or pasted JSON |
+| Safe backup JSON | Export/import settings + tags + visit maps (never accounts/secrets) |
 
 ## Install in Brave (unpacked)
 
@@ -26,7 +27,7 @@ Personal [Manifest V3](https://developer.chrome.com/docs/extensions/mv3) extensi
    ```
 2. Open `brave://extensions`
 3. Enable **Developer mode**
-4. **Load unpacked** → select `.output/chrome-mv3` (produced by `npm run build`)
+4. **Load unpacked** → select `dist/chrome-mv3` (produced by `npm run build`)
 5. Open [old.reddit.com](https://old.reddit.com) or [www.reddit.com](https://www.reddit.com) and confirm the content script injects (popup → add a test tag)
 
 For local development with HMR:
@@ -34,6 +35,25 @@ For local development with HMR:
 ```bash
 npm run dev
 ```
+
+## Install in Firefox (temporary / unpacked)
+
+Firefox builds are Manifest V3 (`--mv3`).
+
+1. Build:
+   ```bash
+   npm install
+   npm run build:firefox
+   ```
+2. Open `about:debugging#/runtime/this-firefox`
+3. **Load Temporary Add-on…** → select `dist/firefox-mv3/manifest.json`
+4. Open Reddit and confirm Rivet injects (popup → add a test tag)
+
+Notes:
+
+- Temporary add-ons are removed when Firefox quits; reload after each restart (or use `npm run zip:firefox` and install the zip for a longer-lived sideload on Developer Edition / Nightly with xpinstall unsigned, depending on your Firefox channel).
+- Cookie/TOTP account switching uses the same APIs; behavior can differ slightly from Brave (partitioned cookies, container tabs). Prefer Capture → Switch on the same profile first.
+- Dev with HMR: `npm run dev:firefox`
 
 ## Account switcher
 
@@ -83,13 +103,40 @@ This writes:
 
 The script **never** exports `RESoptions.accountSwitcher` or other credentials.
 
-### Import in the popup
+### Import / export in the popup
 
-1. Open the Rivet popup
-2. Paste JSON into **Import / export tags**, or click **Load seed file**
-3. Import **merges** — existing manual tags are not wiped
+1. Open the Rivet popup → **Import / export**
+2. **Export Rivet JSON** downloads a safe backup: settings, tags, subreddit visits, and thread visits
+3. **Export tags only** downloads tags without settings/visits
+4. Paste JSON and **Import** — or click **Load seed tags**
+5. Import **merges** tags and visits; when `settings` is present it **replaces** settings
+6. Account cookies / TOTP are **never** exported or imported (any `accounts` key in a file is ignored)
 
 JSON shapes accepted:
+
+```json
+{
+  "source": "rivet",
+  "version": 1,
+  "settings": {
+    "enableTags": true,
+    "enableIgnore": true,
+    "enableOldRedditInfiniteScroll": true,
+    "enableSubredditLastVisited": true,
+    "enableNewCommentCounts": true,
+    "tagBadgeStyle": "pill"
+  },
+  "tags": {
+    "someuser": { "username": "someuser", "label": "bot", "color": "cornflowerblue", "updatedAt": 0 }
+  },
+  "subredditVisits": { "askreddit": 1710000000000 },
+  "threadVisits": {
+    "t3_abc": { "fullname": "t3_abc", "commentCount": 42, "visitedAt": 1710000000000 }
+  }
+}
+```
+
+RES-style tag files still work:
 
 ```json
 {
@@ -117,8 +164,11 @@ JSON shapes accepted:
 ## Development
 
 ```bash
-npm run compile   # Typecheck
-npm run build     # Production build → .output/chrome-mv3
+npm run compile        # Typecheck
+npm run build          # Brave/Chromium → dist/chrome-mv3
+npm run build:firefox  # Firefox MV3 → dist/firefox-mv3
+npm run zip            # Zip Chromium build
+npm run zip:firefox    # Zip Firefox MV3 build
 ```
 
 ## License

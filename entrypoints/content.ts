@@ -16,6 +16,44 @@ import {
   startSubredditLastVisited,
 } from '../lib/reddit/subredditVisits';
 import { startNewCommentCounts } from '../lib/reddit/newCommentCount';
+import { startAccountMenu } from '../lib/reddit/accountMenu';
+
+/** Soft-nav detection: popstate + patched pushState/replaceState (no polling). */
+function watchUrlChanges(onChange: (url: string) => void): () => void {
+  let last = location.href;
+
+  const notifyIfChanged = () => {
+    const next = location.href;
+    if (next === last) return;
+    last = next;
+    onChange(next);
+  };
+
+  const origPush = history.pushState.bind(history);
+  const origReplace = history.replaceState.bind(history);
+
+  history.pushState = function (
+    ...args: Parameters<History['pushState']>
+  ): void {
+    origPush(...args);
+    notifyIfChanged();
+  };
+
+  history.replaceState = function (
+    ...args: Parameters<History['replaceState']>
+  ): void {
+    origReplace(...args);
+    notifyIfChanged();
+  };
+
+  window.addEventListener('popstate', notifyIfChanged);
+
+  return () => {
+    history.pushState = origPush;
+    history.replaceState = origReplace;
+    window.removeEventListener('popstate', notifyIfChanged);
+  };
+}
 
 export default defineContentScript({
   matches: ['*://*.reddit.com/*'],
@@ -29,12 +67,13 @@ export default defineContentScript({
     let stopScroll: (() => void) | null = null;
     let stopSubVisits: (() => void) | null = null;
     let stopNcc: (() => void) | null = null;
+    startAccountMenu();
 
     const refresh = (root: ParentNode = document) => {
       if (!settings) return;
       applyTagsToDocument(tags, settings, root);
       applyIgnoreHides(tags, settings, root);
-      refreshSubredditVisitBadges(subVisits, settings);
+      refreshSubredditVisitBadges(subVisits, settings, root);
     };
 
     const restartScroll = () => {
@@ -85,6 +124,13 @@ export default defineContentScript({
       if (settings) refreshSubredditVisitBadges(subVisits, settings);
     });
 
+    watchUrlChanges(() => {
+      // Soft nav: restart listing scroll + last-visited / new-comment controllers
+      restartScroll();
+      restartP3();
+      refresh();
+    });
+
     const observer = new MutationObserver((mutations) => {
       if (!settings) return;
       for (const mutation of mutations) {
@@ -92,6 +138,7 @@ export default defineContentScript({
           if (node.nodeType !== Node.ELEMENT_NODE) continue;
           const el = node as Element;
           if (
+            el.id === 'rivet-account-switcher' ||
             el.classList?.contains('rivet-badge') ||
             el.classList?.contains('rivet-ignored-bar') ||
             el.classList?.contains('rivet-sub-visit-badge') ||

@@ -1,38 +1,89 @@
 import type { Settings, UserTag, UserTagMap } from '../types';
 import { isIgnoredTag } from '../storage';
 import { findAuthorNodes } from './authors';
+import {
+  formatNetVote,
+  netVoteScore,
+  voteBadgeColors,
+} from './votes';
 
 const BADGE_ATTR = 'data-rivet-badge';
 
+/** Resolve any CSS color (hex, rgb, named) to sRGB channels via canvas. */
+function resolveCssColor(input: string): { r: number; g: number; b: number } | null {
+  const s = input.trim();
+  if (!s) return null;
+
+  const hex = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (hex) {
+    let h = hex[1];
+    if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+    return {
+      r: parseInt(h.slice(0, 2), 16),
+      g: parseInt(h.slice(2, 4), 16),
+      b: parseInt(h.slice(4, 6), 16),
+    };
+  }
+
+  try {
+    const ctx = document.createElement('canvas').getContext('2d');
+    if (!ctx) return null;
+    // Sentinel: invalid colors leave fillStyle unchanged
+    ctx.fillStyle = '#01fe02';
+    const sentinel = String(ctx.fillStyle);
+    ctx.fillStyle = s;
+    const normalized = String(ctx.fillStyle);
+    if (normalized === sentinel) return null;
+
+    const asHex = normalized.match(/^#([0-9a-f]{6})$/i);
+    if (asHex) {
+      const h = asHex[1];
+      return {
+        r: parseInt(h.slice(0, 2), 16),
+        g: parseInt(h.slice(2, 4), 16),
+        b: parseInt(h.slice(4, 6), 16),
+      };
+    }
+    const rgb = normalized.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+    if (rgb) {
+      return { r: Number(rgb[1]), g: Number(rgb[2]), b: Number(rgb[3]) };
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 function contrastText(bg: string): string {
-  const hex = bg.trim();
-  const m = hex.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
-  if (!m) return '#fff';
-  let h = m[1];
-  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  const rgb = resolveCssColor(bg);
+  if (!rgb) return '#fff';
+  const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
   return lum > 0.6 ? '#111' : '#fff';
+}
+
+function isVoteStyleTag(tag: UserTag): boolean {
+  // Custom label/color wins; otherwise net-vote display gets green/red even if a link exists
+  if (tag.label?.trim() || tag.color || isIgnoredTag(tag)) return false;
+  return netVoteScore(tag) != null;
 }
 
 function badgeLabel(tag: UserTag): string {
   if (tag.label?.trim()) return tag.label.trim();
   if (isIgnoredTag(tag)) return 'ignore';
-  const parts: string[] = [];
-  if (typeof tag.votesUp === 'number' && tag.votesUp !== 0) {
-    parts.push(`+${tag.votesUp}`);
-  }
-  if (typeof tag.votesDown === 'number' && tag.votesDown !== 0) {
-    parts.push(`-${Math.abs(tag.votesDown)}`);
-  }
-  return parts.join(' ') || 'tagged';
+  const score = netVoteScore(tag);
+  if (score != null) return formatNetVote(score);
+  return 'tagged';
 }
 
 function shouldShowBadge(tag: UserTag | undefined): tag is UserTag {
   if (!tag) return false;
-  return Boolean(tag.label || tag.ignore || tag.color || tag.link);
+  return Boolean(
+    tag.label ||
+      tag.ignore ||
+      tag.color ||
+      tag.link ||
+      netVoteScore(tag) != null,
+  );
 }
 
 function createBadge(tag: UserTag, style: Settings['tagBadgeStyle']): HTMLElement {
@@ -42,12 +93,22 @@ function createBadge(tag: UserTag, style: Settings['tagBadgeStyle']): HTMLElemen
   host.style.display = 'inline-flex';
   host.style.alignItems = 'center';
   host.style.marginLeft = '4px';
+  host.style.marginRight = '4px';
   host.style.verticalAlign = 'middle';
 
   const shadow = host.attachShadow({ mode: 'open' });
   const label = badgeLabel(tag);
-  const bg = tag.color || (isIgnoredTag(tag) ? '#666' : '#455a64');
-  const fg = contrastText(bg);
+  const score = netVoteScore(tag);
+  const voteStyle = isVoteStyleTag(tag);
+
+  let bg: string;
+  let fg: string;
+  if (voteStyle && score != null) {
+    ({ bg, fg } = voteBadgeColors(score));
+  } else {
+    bg = tag.color || (isIgnoredTag(tag) ? '#666' : '#455a64');
+    fg = contrastText(bg);
+  }
 
   const styleEl = document.createElement('style');
   styleEl.textContent =
@@ -56,7 +117,7 @@ function createBadge(tag: UserTag, style: Settings['tagBadgeStyle']): HTMLElemen
         :host { all: initial; }
         .badge {
           font: 600 11px/1.2 system-ui, -apple-system, sans-serif;
-          color: ${bg};
+          color: ${voteStyle && score != null ? fg : bg};
           margin-left: 2px;
           white-space: nowrap;
         }
@@ -80,10 +141,13 @@ function createBadge(tag: UserTag, style: Settings['tagBadgeStyle']): HTMLElemen
 
   const badge = document.createElement('span');
   badge.className = 'badge';
+  const up = tag.votesUp ?? 0;
+  const down = tag.votesDown ?? 0;
   badge.title = [
     `u/${tag.username}`,
     tag.label ? `label: ${tag.label}` : null,
     isIgnoredTag(tag) ? 'ignored' : null,
+    score != null ? `RES votes: +${up} / −${down} → ${formatNetVote(score)}` : null,
     tag.link || null,
   ]
     .filter(Boolean)

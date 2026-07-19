@@ -4,6 +4,8 @@ type ScrollState = {
   nextUrl: string | null;
   loading: boolean;
   stopped: boolean;
+  /** Bumped on stop/restart so in-flight fetches ignore stale completions. */
+  generation: number;
   seen: Set<string>;
   indicator: HTMLElement | null;
   observer: IntersectionObserver | null;
@@ -13,6 +15,7 @@ const state: ScrollState = {
   nextUrl: null,
   loading: false,
   stopped: false,
+  generation: 0,
   seen: new Set(),
   indicator: null,
   observer: null,
@@ -33,12 +36,21 @@ function findNextUrl(doc: Document = document): string | null {
 }
 
 function thingId(el: Element): string | null {
+  // Reddit uses data-fullname (e.g. t3_abc); keep legacy typo attr as fallback
   return (
-    el.getAttribute('data-fullnamename') ||
     el.getAttribute('data-fullname') ||
+    el.getAttribute('data-fullnamename') ||
     el.id ||
     null
   );
+}
+
+/** True when the load sentinel is still near/in the viewport. */
+function sentinelStillNear(): boolean {
+  const el = state.indicator;
+  if (!el) return false;
+  const rect = el.getBoundingClientRect();
+  return rect.top < window.innerHeight + 800;
 }
 
 function ensureIndicator(): HTMLElement {
@@ -67,8 +79,12 @@ function seedSeen(): void {
   });
 }
 
-async function loadNextPage(onAppended: (nodes: Element[]) => void): Promise<void> {
+async function loadNextPage(
+  onAppended: (nodes: Element[]) => void,
+  generation: number,
+): Promise<void> {
   if (state.loading || state.stopped || !state.nextUrl) return;
+  if (generation !== state.generation) return;
   state.loading = true;
   setStatus('Loading more…');
 
@@ -77,8 +93,10 @@ async function loadNextPage(onAppended: (nodes: Element[]) => void): Promise<voi
       credentials: 'include',
       headers: { Accept: 'text/html' },
     });
+    if (generation !== state.generation) return;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const html = await res.text();
+    if (generation !== state.generation) return;
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const remoteTable =
       doc.getElementById('siteTable') ||
@@ -124,10 +142,28 @@ async function loadNextPage(onAppended: (nodes: Element[]) => void): Promise<voi
       setStatus('');
     }
   } catch (err) {
+    if (generation !== state.generation) return;
     console.warn('[rivet] infinite scroll failed', err);
     setStatus('Failed to load more. Scroll again to retry.');
   } finally {
+    if (generation !== state.generation) return;
     state.loading = false;
+    // IntersectionObserver may not re-fire if the sentinel never left the
+    // viewport after a short page — chain another load while still near.
+    // Defer one frame so we don't race a simultaneous observer callback.
+    if (!state.stopped && state.nextUrl && sentinelStillNear()) {
+      requestAnimationFrame(() => {
+        if (
+          generation === state.generation &&
+          !state.loading &&
+          !state.stopped &&
+          state.nextUrl &&
+          sentinelStillNear()
+        ) {
+          void loadNextPage(onAppended, generation);
+        }
+      });
+    }
   }
 }
 
@@ -138,20 +174,29 @@ export function startOldRedditInfiniteScroll(
     return () => undefined;
   }
 
+  // Fresh run — clear any leftover module state from a prior listing
+  state.observer?.disconnect();
+  state.observer = null;
+  state.indicator?.remove();
+  state.indicator = null;
+  state.loading = false;
+  state.stopped = false;
+  state.generation += 1;
+  const generation = state.generation;
+  state.seen.clear();
+  state.nextUrl = null;
+
   seedSeen();
   state.nextUrl = findNextUrl();
   if (!state.nextUrl) {
-    setStatus('');
     return () => undefined;
   }
-
-  ensureIndicator();
 
   const sentinel = ensureIndicator();
   state.observer = new IntersectionObserver(
     (entries) => {
       if (entries.some((e) => e.isIntersecting)) {
-        void loadNextPage(onAppended);
+        void loadNextPage(onAppended, generation);
       }
     },
     { rootMargin: '800px 0px' },
@@ -159,6 +204,7 @@ export function startOldRedditInfiniteScroll(
   state.observer.observe(sentinel);
 
   return () => {
+    state.generation += 1;
     state.observer?.disconnect();
     state.observer = null;
     state.indicator?.remove();

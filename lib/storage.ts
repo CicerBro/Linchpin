@@ -219,7 +219,7 @@ export async function recordThreadVisit(
   await threadVisitsItem.setValue(visits);
 }
 
-/** Safe export payload — never includes cookies, TOTP, or account secrets. */
+/** @deprecated Prefer buildRivetBackup — tags-only helper kept for callers. */
 export function buildSafeExport(tags: UserTagMap): {
   source: string;
   exportedAt: string;
@@ -230,6 +230,56 @@ export function buildSafeExport(tags: UserTagMap): {
     exportedAt: new Date().toISOString(),
     tags,
   };
+}
+
+/** Merge visit maps; keep the newer stamp per key. */
+export async function mergeSubredditVisits(
+  incoming: SubredditVisitMap,
+): Promise<{ added: number; updated: number }> {
+  const current = await getSubredditVisits();
+  let added = 0;
+  let updated = 0;
+  for (const [key, ts] of Object.entries(incoming)) {
+    const name = normalizeSubreddit(key);
+    if (!name) continue;
+    const prev = current[name];
+    if (prev == null) {
+      current[name] = ts;
+      added++;
+    } else if (ts > prev) {
+      current[name] = ts;
+      updated++;
+    }
+  }
+  await subredditVisitsItem.setValue(current);
+  return { added, updated };
+}
+
+export async function mergeThreadVisits(
+  incoming: ThreadVisitMap,
+): Promise<{ added: number; updated: number }> {
+  const current = await getThreadVisits();
+  let added = 0;
+  let updated = 0;
+  for (const [key, visit] of Object.entries(incoming)) {
+    const fullname = key.toLowerCase();
+    if (!fullname) continue;
+    const prev = current[fullname];
+    if (!prev) {
+      current[fullname] = { ...visit, fullname };
+      added++;
+    } else if (visit.visitedAt > prev.visitedAt) {
+      current[fullname] = { ...visit, fullname };
+      updated++;
+    }
+  }
+  await threadVisitsItem.setValue(current);
+  return { added, updated };
+}
+
+export async function replaceSettings(next: Settings): Promise<Settings> {
+  await settingsItem.setValue(next);
+  return next;
 }
 
 /** Public account summary for UI lists (no secrets). */

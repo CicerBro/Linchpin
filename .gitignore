@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 .output
+dist
 stats.html
 stats-*.json
 .wxt
@@ -29,12 +30,15 @@ secrets/
 **/res-full-dump*.json
 **/brave-res-full*.json
 
-# Local RES exports that may include credentials — keep tagged seeds only
+# Local RES exports and private tag seeds
 data/res-export-raw*
 data/account*
+/data/res-tags-seed.json
+/public/data/res-tags-seed.json
 
 # Editor directories and files
 .vscode/*
+.cursor/*
 !.vscode/extensions.json
 .idea
 .DS_Store

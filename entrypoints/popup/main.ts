@@ -5,11 +5,16 @@ import {
   deleteTag,
   getAccountStore,
   getSettings,
+  getSubredditVisits,
   getTags,
+  getThreadVisits,
+  mergeSubredditVisits,
   mergeTags,
+  mergeThreadVisits,
   newAccountId,
   normalizeUsername,
   removeAccount,
+  replaceSettings,
   updateSettings,
   upsertAccount,
   upsertTag,
@@ -22,6 +27,12 @@ import type {
   UserTagMap,
 } from '../../lib/types';
 import { parseResTagsText } from '../../lib/import/resTags';
+import {
+  buildRivetBackup,
+  parseRivetBackupText,
+} from '../../lib/import/rivetBackup';
+import { ensureResSeedImported } from '../../lib/import/ensureSeed';
+import { formatNetVote, netVoteScore } from '../../lib/reddit/votes';
 import { maskSecret } from '../../lib/accounts/totp';
 import type { RivetMessage } from '../../lib/accounts/messages';
 
@@ -80,9 +91,13 @@ function filteredTags(): UserTag[] {
 }
 
 async function reload(): Promise<void> {
+  const seed = await ensureResSeedImported();
   tags = await getTags();
   settings = await getSettings();
   accounts = await getAccountStore();
+  if (seed.status === 'imported') {
+    statusMsg = `Imported ${seed.added} RES tags from Brave seed`;
+  }
   render();
 }
 
@@ -163,7 +178,7 @@ function accountsHtml(): string {
   return `
     <section class="panel">
       <h2>Accounts</h2>
-      <p class="help">Fast switch via Reddit cookie swap. If a session is expired, use TOTP + login, then <strong>Capture session</strong>.</p>
+      <p class="help">Also available on Reddit as a <strong>Rivet</strong> control next to the user menu (top right). Manage accounts here; switch there for speed.</p>
       <ul class="account-list">
         ${
           list.length
@@ -275,9 +290,11 @@ function listHtml(): string {
                   const swatch = t.color
                     ? `<span class="swatch" style="background:${t.color}"></span>`
                     : '';
+                  const score = netVoteScore(t);
                   const bits = [
                     t.label ? escapeHtml(t.label) : '',
                     t.ignore ? 'ignore' : '',
+                    !t.label && score != null ? escapeHtml(formatNetVote(score)) : '',
                   ]
                     .filter(Boolean)
                     .join(' · ');
@@ -305,13 +322,14 @@ function listHtml(): string {
 function importHtml(): string {
   return `
     <section class="panel">
-      <h2>Import / export tags</h2>
-      <p class="help">Paste JSON from the export script or a RES backup. Merges with existing tags. <strong>Exports never include account cookies or TOTP secrets.</strong></p>
-      <textarea id="import-json" rows="4" placeholder='{"tags":{"username":{"text":"bot","color":"cornflowerblue"}}}'></textarea>
+      <h2>Import / export</h2>
+      <p class="help">Paste Rivet backup JSON (settings + tags + visit maps) or a RES tag export. Merges tags/visits; replaces settings when present. <strong>Never includes account cookies or TOTP secrets.</strong></p>
+      <textarea id="import-json" rows="4" placeholder='{"settings":{…},"tags":{"username":{"text":"bot"}}}'></textarea>
       <div class="actions">
         <button type="button" id="import-btn" class="primary">Import</button>
-        <button type="button" id="import-seed">Load seed file</button>
-        <button type="button" id="export-btn">Export tags JSON</button>
+        <button type="button" id="import-seed">Load seed tags</button>
+        <button type="button" id="export-btn">Export Rivet JSON</button>
+        <button type="button" id="export-tags-btn">Export tags only</button>
       </div>
     </section>
   `;
@@ -615,12 +633,38 @@ function bind(): void {
     const text =
       document.querySelector<HTMLTextAreaElement>('#import-json')?.value || '';
     try {
-      const parsed = parseResTagsText(text);
-      const result = await mergeTags(parsed);
-      tags = await getTags();
-      setStatus(
-        `Imported: ${result.added} added, ${result.updated} merged`,
-      );
+      const parsed = parseRivetBackupText(text);
+      const parts: string[] = [];
+
+      if (parsed.settings) {
+        settings = await replaceSettings(parsed.settings);
+        parts.push('settings');
+      }
+      if (parsed.tags) {
+        const result = await mergeTags(parsed.tags);
+        tags = await getTags();
+        parts.push(
+          `tags (${result.added} added, ${result.updated} merged)`,
+        );
+      }
+      if (parsed.subredditVisits) {
+        const result = await mergeSubredditVisits(parsed.subredditVisits);
+        parts.push(
+          `sub visits (${result.added}+${result.updated})`,
+        );
+      }
+      if (parsed.threadVisits) {
+        const result = await mergeThreadVisits(parsed.threadVisits);
+        parts.push(
+          `thread visits (${result.added}+${result.updated})`,
+        );
+      }
+
+      let msg = `Imported: ${parts.join('; ')}`;
+      if (parsed.ignoredAccounts) {
+        msg += ' (accounts/secrets in file were ignored)';
+      }
+      setStatus(msg);
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Import failed');
     }
@@ -636,15 +680,32 @@ function bind(): void {
       const result = await mergeTags(parsed);
       tags = await getTags();
       setStatus(
-        `Seed loaded: ${result.added} added, ${result.updated} merged`,
+        `Seed loaded: ${result.added} added, ${result.updated} merged (${Object.keys(tags).length} total)`,
       );
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Seed import failed');
     }
   });
 
-  document.querySelector('#export-btn')?.addEventListener('click', () => {
-    // Intentionally tags-only — never accounts/cookies/TOTP
+  document.querySelector('#export-btn')?.addEventListener('click', async () => {
+    const payload = buildRivetBackup({
+      tags: await getTags(),
+      settings: await getSettings(),
+      subredditVisits: await getSubredditVisits(),
+      threadVisits: await getThreadVisits(),
+    });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json',
+    });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `rivet-backup-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    setStatus('Rivet backup downloaded (no account secrets)');
+  });
+
+  document.querySelector('#export-tags-btn')?.addEventListener('click', () => {
     const payload = buildSafeExport(tags);
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: 'application/json',

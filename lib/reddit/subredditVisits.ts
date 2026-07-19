@@ -7,6 +7,8 @@ import type { Settings, SubredditVisitMap } from '../types';
 import { detectRedditUi } from './detect';
 
 const HINT_ID = 'rivet-subreddit-last-visited';
+const BADGE_CLASS = 'rivet-sub-visit-badge';
+const LINK_MARK = 'data-rivet-sub-visit';
 
 function formatRelative(ts: number, now = Date.now()): string {
   const sec = Math.max(0, Math.floor((now - ts) / 1000));
@@ -32,6 +34,12 @@ export function currentSubredditFromLocation(): string | null {
   return name;
 }
 
+/** Per-link visit badges are too noisy on new-Reddit profile feeds. */
+function allowLinkBadgesOnThisPage(): boolean {
+  if (detectRedditUi() !== 'new') return true;
+  return !/^\/(?:user|u)\//i.test(location.pathname);
+}
+
 function ensureStyles(): void {
   if (document.getElementById('rivet-subvisit-styles')) return;
   const style = document.createElement('style');
@@ -43,14 +51,23 @@ function ensureStyles(): void {
       margin: 4px 0 8px;
       padding: 4px 0;
     }
-    .rivet-sub-visit-badge {
-      font: 600 10px/1 system-ui, -apple-system, sans-serif;
+    .${BADGE_CLASS} {
+      font: 600 10px/1.2 system-ui, -apple-system, sans-serif;
       color: #555;
-      margin-left: 6px;
+      margin-left: 4px;
       white-space: nowrap;
+      display: inline;
+      flex: 0 0 auto;
     }
   `;
   document.documentElement.appendChild(style);
+}
+
+function clearLinkBadges(): void {
+  document.querySelectorAll(`.${BADGE_CLASS}`).forEach((el) => el.remove());
+  document.querySelectorAll(`[${LINK_MARK}]`).forEach((el) => {
+    el.removeAttribute(LINK_MARK);
+  });
 }
 
 function upsertHeaderHint(text: string): void {
@@ -76,7 +93,7 @@ function upsertHeaderHint(text: string): void {
     } else {
       const anchor =
         document.querySelector('shreddit-subreddit-header-buttons') ||
-        document.querySelector('h1') ||
+        document.querySelector('shreddit-subreddit-header') ||
         document.querySelector('shreddit-app');
       if (anchor) anchor.insertAdjacentElement('beforebegin', el);
       else document.body.prepend(el);
@@ -85,14 +102,85 @@ function upsertHeaderHint(text: string): void {
   el.textContent = text;
 }
 
-/**
- * Annotate subreddit links in listings with last-visited age when known.
- */
-function annotateSubredditLinks(visits: SubredditVisitMap): void {
-  ensureStyles();
-  const links = document.querySelectorAll<HTMLAnchorElement>(
-    'a.subreddit, a[href*="/r/"], faceplate-tracker[noun="subreddit"] a',
+function cardForLink(a: Element): Element | null {
+  return a.closest(
+    [
+      'shreddit-post',
+      'shreddit-comment',
+      'shreddit-profile-comment',
+      'article',
+      '.thing',
+      '[data-testid="post-container"]',
+      'faceplate-tracker[noun="post"]',
+    ].join(', '),
   );
+}
+
+function isAnnotatableSubLink(
+  a: HTMLAnchorElement,
+  name: string,
+): boolean {
+  if (a.hasAttribute(LINK_MARK)) return false;
+  if (a.nextElementSibling?.classList.contains(BADGE_CLASS)) return false;
+  if (
+    a.closest(
+      [
+        '#header-bottom-left',
+        'shreddit-subreddit-header',
+        'header',
+        'nav',
+        '[role="navigation"]',
+        'aside',
+        '#right-sidebar-container',
+        '[id*="sidebar" i]',
+        '[data-testid="frontpage-sidebar"]',
+        'recent-posts',
+      ].join(', '),
+    )
+  ) {
+    return false;
+  }
+
+  // Icon-only / empty links break new Reddit flex rows if we inject after them
+  const text = (a.textContent || '').replace(/\s+/g, ' ').trim();
+  if (!text) return false;
+
+  const looksLikeSubName =
+    a.classList.contains('subreddit') ||
+    new RegExp(`^(r/)?${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i').test(
+      text,
+    ) ||
+    /^r\/[A-Za-z0-9_]+$/i.test(text);
+
+  if (!looksLikeSubName) return false;
+
+  // One badge per post/comment card for this sub
+  const card = cardForLink(a);
+  if (card?.querySelector(`.${BADGE_CLASS}[data-sub="${name}"]`)) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Annotate subreddit name links with last-visited age (not icons, not profile spam).
+ */
+function annotateSubredditLinks(
+  visits: SubredditVisitMap,
+  root: ParentNode = document,
+): void {
+  if (!allowLinkBadgesOnThisPage()) {
+    clearLinkBadges();
+    return;
+  }
+
+  ensureStyles();
+  const scope = root instanceof Element ? root : document;
+  const links = scope.querySelectorAll?.<HTMLAnchorElement>(
+    'a.subreddit, a[href*="/r/"]',
+  );
+  if (!links) return;
 
   for (const a of links) {
     const href = a.getAttribute('href') || '';
@@ -101,17 +189,11 @@ function annotateSubredditLinks(visits: SubredditVisitMap): void {
     const name = normalizeSubreddit(m[1]);
     const ts = visits[name];
     if (!ts) continue;
+    if (!isAnnotatableSubLink(a, name)) continue;
 
-    const parent = a.parentElement;
-    if (!parent) continue;
-    if (parent.querySelector(`.rivet-sub-visit-badge[data-sub="${name}"]`)) {
-      continue;
-    }
-    // Skip if this is the main header subreddit title (header hint covers it)
-    if (a.closest('#header-bottom-left, shreddit-subreddit-header')) continue;
-
+    a.setAttribute(LINK_MARK, name);
     const badge = document.createElement('span');
-    badge.className = 'rivet-sub-visit-badge';
+    badge.className = BADGE_CLASS;
     badge.dataset.sub = name;
     badge.title = `Last visited ${new Date(ts).toLocaleString()}`;
     badge.textContent = `· visited ${formatRelative(ts)}`;
@@ -126,6 +208,7 @@ function annotateSubredditLinks(visits: SubredditVisitMap): void {
 export function startSubredditLastVisited(settings: Settings): () => void {
   if (!settings.enableSubredditLastVisited) {
     document.getElementById(HINT_ID)?.remove();
+    clearLinkBadges();
     return () => undefined;
   }
 
@@ -147,10 +230,11 @@ export function startSubredditLastVisited(settings: Settings): () => void {
         upsertHeaderHint(`First Rivet visit to r/${sub}`);
       }
 
-      // Record visit after user has been here briefly (previous stamp stays visible)
       timer = window.setTimeout(() => {
         if (!cancelled) void recordSubredditVisit(sub);
       }, 4000);
+    } else {
+      document.getElementById(HINT_ID)?.remove();
     }
 
     annotateSubredditLinks(visits);
@@ -165,11 +249,12 @@ export function startSubredditLastVisited(settings: Settings): () => void {
 export function refreshSubredditVisitBadges(
   visits: SubredditVisitMap,
   settings: Settings,
+  root: ParentNode = document,
 ): void {
   if (!settings.enableSubredditLastVisited) {
     document.getElementById(HINT_ID)?.remove();
-    document.querySelectorAll('.rivet-sub-visit-badge').forEach((el) => el.remove());
+    clearLinkBadges();
     return;
   }
-  annotateSubredditLinks(visits);
+  annotateSubredditLinks(visits, root);
 }
