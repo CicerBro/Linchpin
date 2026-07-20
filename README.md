@@ -23,8 +23,6 @@ Linchpin is not affiliated with Reddit, Google, YouTube, RES, Callum Locke, or a
 | Media        | User-triggered native Picture-in-Picture for the most useful visible video                                                                                                                                               |
 | AI summaries | User-triggered article extraction and Markdown summaries using OpenAI, Anthropic, xAI, Kimi, Gemini, GLM, or OpenRouter; per-format defaults, one-time model overrides, language control, and rich-text or Markdown copy |
 
-Settings are grouped by feature and can be changed independently. Existing version 0.2 settings are migrated on first run.
-
 ## Install
 
 Grab the latest build from the [GitHub Releases](https://github.com/CicerBro/Linchpin/releases/latest) page (`linchpin-*-chrome.zip` or `linchpin-*-firefox.zip`) and unzip it.
@@ -81,14 +79,36 @@ These values are sensitive. Do not commit cookie dumps or TOTP secrets, and reca
 
 ## Import and export
 
-The popup accepts Linchpin backups and RES-style tag JSON. Imported entries are validated individually: usernames, labels, colors, links, numeric votes, timestamps, visit maps, and settings must have supported shapes and bounded values. Tag links must use HTTP(S), and colors must be valid CSS colors without markup.
+The popup **Data** tab accepts Linchpin backups and RES-style tag JSON. Imported entries are validated individually: usernames, labels, colors, links, numeric votes, timestamps, visit maps, and settings must have supported shapes and bounded values. Tag links must use HTTP(S), and colors must be valid CSS colors without markup.
 
-Normal exports (backup version 2) include settings — with summarizer provider and per-style models — plus Reddit data nested under `reddit`:
+Normal exports include settings (with summarizer provider and per-style models) plus Reddit data nested under `reddit`:
 
-- `reddit.users` — labels, ignore rules, links, and vote counts
-- `reddit.subredditVisits` / `reddit.threadVisits` — visit history
+- `reddit.users`: labels, ignore rules, links, and vote counts
+- `reddit.subredditVisits` / `reddit.threadVisits`: visit history
 
 Account cookies, TOTP secrets, and provider API keys are always excluded.
+
+### Chromium RES seed (Chrome / Brave / Edge, …)
+
+Linchpin cannot read another extension’s `storage.local`. On Chromium builds, the Data tab can load a **bundled seed** of RES user tags that you generate on your machine with a Node script (not available in the Firefox build).
+
+With RES installed in a Chromium browser, close that browser (or at least quit it so LevelDB is unlocked), then from the repo:
+
+```bash
+npm install
+npm run export:res-tags
+```
+
+That reads RES’s LevelDB under the browser profile, writes `data/res-tags-seed.json`, and copies it to `public/data/res-tags-seed.json` for packaging. Useful options:
+
+```bash
+npm run export:res-tags -- --list                 # find RES installs
+npm run export:res-tags -- --browser chrome
+npm run export:res-tags -- --browser brave --labeled-only
+npm run export:res-tags -- --help
+```
+
+Rebuild afterward (`npm run build`) so the seed is included in `dist`. Firefox RES storage uses a different on-disk format; for Firefox, export tags from RES itself and paste/import the JSON in the Data tab.
 
 Visit histories are pruned during startup/writes, never by a timer: threads keep the 5,000 most recent entries and subreddits keep 2,000. Old-Reddit infinite scroll stops after 20 fetched pages or 500 appended posts and provides a normal next-page link.
 
