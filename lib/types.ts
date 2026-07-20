@@ -22,6 +22,8 @@ export type FeatureSettings = {
     infiniteScroll: boolean;
     subredditVisits: boolean;
     newCommentCounts: boolean;
+    commentScoreColors: boolean;
+    authorHighlights: boolean;
     tagBadgeStyle: TagBadgeStyle;
   };
   jsonFormatter: {
@@ -80,6 +82,8 @@ export const DEFAULT_SETTINGS: FeatureSettings = {
     infiniteScroll: true,
     subredditVisits: true,
     newCommentCounts: true,
+    commentScoreColors: true,
+    authorHighlights: true,
     tagBadgeStyle: 'pill',
   },
   jsonFormatter: {

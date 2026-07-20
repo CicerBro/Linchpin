@@ -113,6 +113,8 @@ function redditSettingsHtml(): string {
         ${settingRow({ id: 'enableScroll', title: 'Infinite scroll', description: 'Load more posts automatically on old Reddit.', checked: settings.reddit.infiniteScroll })}
         ${settingRow({ id: 'enableSubVisits', title: 'Visit hints', description: 'Show when you last opened a subreddit.', checked: settings.reddit.subredditVisits })}
         ${settingRow({ id: 'enableNcc', title: 'New comment counts', description: 'Track new replies since your last thread visit.', checked: settings.reddit.newCommentCounts })}
+        ${settingRow({ id: 'enableCommentScores', title: 'Comment points', description: 'Green / red +N chips on old Reddit comments, live vote updates, and pts|you merge with stored user votes.', checked: settings.reddit.commentScoreColors })}
+        ${settingRow({ id: 'enableAuthorHighlights', title: 'Author highlights', description: 'RES-style name colors: admins red, mods green, OP blue.', checked: settings.reddit.authorHighlights })}
       </div>
       <label class="select-row">
         <span class="setting-copy"><strong>Tag appearance</strong><span>Choose how labels sit beside usernames.</span></span>
@@ -425,6 +427,18 @@ function bind(): void {
   document.querySelector('#enableNcc')?.addEventListener('change', async (e) => {
     settings = await updateSettings({
       reddit: { newCommentCounts: (e.target as HTMLInputElement).checked },
+    });
+    setStatus('Settings saved');
+  });
+  document.querySelector('#enableCommentScores')?.addEventListener('change', async (e) => {
+    settings = await updateSettings({
+      reddit: { commentScoreColors: (e.target as HTMLInputElement).checked },
+    });
+    setStatus('Settings saved');
+  });
+  document.querySelector('#enableAuthorHighlights')?.addEventListener('change', async (e) => {
+    settings = await updateSettings({
+      reddit: { authorHighlights: (e.target as HTMLInputElement).checked },
     });
     setStatus('Settings saved');
   });

@@ -61,6 +61,14 @@ export function normalizeSettings(raw: unknown): FeatureSettings {
         reddit.newCommentCounts,
         bool(legacy.enableNewCommentCounts, DEFAULT_SETTINGS.reddit.newCommentCounts),
       ),
+      commentScoreColors: bool(
+        reddit.commentScoreColors,
+        DEFAULT_SETTINGS.reddit.commentScoreColors,
+      ),
+      authorHighlights: bool(
+        reddit.authorHighlights,
+        DEFAULT_SETTINGS.reddit.authorHighlights,
+      ),
       tagBadgeStyle:
         reddit.tagBadgeStyle === 'text' || reddit.tagBadgeStyle === 'pill'
           ? reddit.tagBadgeStyle

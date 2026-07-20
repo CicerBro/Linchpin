@@ -22,6 +22,8 @@ import {
 import { startNewCommentCounts } from '../lib/reddit/newCommentCount';
 import { startAccountMenu, type AccountMenuHandle } from '../lib/reddit/accountMenu';
 import { removeRedesignOptIn } from '../lib/reddit/removeRedesignOptIn';
+import { applyCommentScoreColors } from '../lib/reddit/commentScores';
+import { applyAuthorHighlights } from '../lib/reddit/authorHighlights';
 import { executeRedditLogin } from '../lib/accounts/redditLogin';
 import type { LinchpinMessage } from '../lib/accounts/messages';
 
@@ -70,7 +72,7 @@ function createRestartable(start: () => () => void): RestartableController {
 function isLinchpinElement(element: Element): boolean {
   return Boolean(
     element.closest(
-      '#linchpin-account-switcher, .linchpin-badge, .linchpin-ignored-bar, .linchpin-sub-visit-badge, #linchpin-ner-indicator, #linchpin-hide-styles, #linchpin-subreddit-last-visited, #linchpin-new-comment-banner',
+      '#linchpin-account-switcher, .linchpin-badge, .linchpin-comment-score, .linchpin-ignored-bar, .linchpin-sub-visit-badge, #linchpin-ner-indicator, #linchpin-hide-styles, #linchpin-subreddit-last-visited, #linchpin-new-comment-banner',
     ),
   );
 }
@@ -78,7 +80,7 @@ function isLinchpinElement(element: Element): boolean {
 export default defineContentScript({
   matches: ['*://*.reddit.com/*'],
   runAt: 'document_idle',
-  main() {
+  main(ctx) {
     logUiDetectionOnce();
     const lifecycle = new Lifecycle();
     lifecycle.start();
@@ -91,7 +93,17 @@ export default defineContentScript({
     let stopNewCommentsRoute: (() => void) | null = null;
     let disposed = false;
 
+    const stillAlive = () => {
+      if (disposed || ctx.isInvalid) return false;
+      try {
+        return Boolean(browser.runtime?.id);
+      } catch {
+        return false;
+      }
+    };
+
     const onMessage = (message: LinchpinMessage | unknown) => {
+      if (!stillAlive()) return undefined;
       if (
         !message ||
         typeof message !== 'object' ||
@@ -105,7 +117,13 @@ export default defineContentScript({
       );
     };
     browser.runtime.onMessage.addListener(onMessage);
-    lifecycle.add(() => browser.runtime.onMessage.removeListener(onMessage));
+    lifecycle.add(() => {
+      try {
+        browser.runtime.onMessage.removeListener(onMessage);
+      } catch {
+        /* Extension context already gone after reload. */
+      }
+    });
 
     const tagsController = createRootController(
       () => applyTagsToDocument(tags, settings!, document),
@@ -158,15 +176,42 @@ export default defineContentScript({
       (root) => removeRedesignOptIn(root),
     );
 
+    const commentScoresController = createRootController(
+      () => applyCommentScoreColors(settings!, document),
+      () => {
+        const disabled = {
+          ...settings!,
+          reddit: { ...settings!.reddit, commentScoreColors: false },
+        };
+        applyCommentScoreColors(disabled, document);
+      },
+      (root) => applyCommentScoreColors(settings!, root),
+    );
+
+    const authorHighlightsController = createRootController(
+      () => applyAuthorHighlights(settings!),
+      () => {
+        const disabled = {
+          ...settings!,
+          reddit: { ...settings!.reddit, authorHighlights: false },
+        };
+        applyAuthorHighlights(disabled);
+      },
+      () => applyAuthorHighlights(settings!),
+    );
+
     const mutationControllers: RootFeatureController[] = [
       tagsController,
       ignoreController,
       subredditController,
       accountController,
       redesignOptInController,
+      commentScoresController,
+      authorHighlightsController,
     ];
 
     const batch = createMutationBatch((roots) => {
+      if (!stillAlive()) return;
       for (const root of roots) {
         for (const controller of mutationControllers) controller.process(root);
       }
@@ -187,7 +232,7 @@ export default defineContentScript({
     });
 
     const syncControllers = (previous: FeatureSettings | null) => {
-      if (!settings) return;
+      if (!settings || !stillAlive()) return;
       const sync = (changed: boolean, enabled: boolean, controller: FeatureController) => {
         if (!changed) return;
         controller.stop();
@@ -197,7 +242,8 @@ export default defineContentScript({
       sync(
         !previous ||
           previous.reddit.tags !== settings.reddit.tags ||
-          previous.reddit.tagBadgeStyle !== settings.reddit.tagBadgeStyle,
+          previous.reddit.tagBadgeStyle !== settings.reddit.tagBadgeStyle ||
+          previous.reddit.commentScoreColors !== settings.reddit.commentScoreColors,
         settings.reddit.tags,
         tagsController,
       );
@@ -226,9 +272,20 @@ export default defineContentScript({
         settings.reddit.newCommentCounts,
         newCommentsController,
       );
+      sync(
+        !previous || previous.reddit.commentScoreColors !== settings.reddit.commentScoreColors,
+        settings.reddit.commentScoreColors,
+        commentScoresController,
+      );
+      sync(
+        !previous || previous.reddit.authorHighlights !== settings.reddit.authorHighlights,
+        settings.reddit.authorHighlights,
+        authorHighlightsController,
+      );
     };
 
     const observer = new MutationObserver((mutations) => {
+      if (!stillAlive()) return;
       for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
           if (!(node instanceof Element) || isLinchpinElement(node)) continue;
@@ -241,7 +298,7 @@ export default defineContentScript({
 
     lifecycle.add(
       watchNavigation(() => {
-        if (!settings) return;
+        if (!stillAlive() || !settings) return;
         if (settings.reddit.infiniteScroll) scrollController.restart();
         if (settings.reddit.newCommentCounts) newCommentsController.restart();
         if (settings.reddit.subredditVisits) {
@@ -256,16 +313,22 @@ export default defineContentScript({
     redesignOptInController.start();
 
     void (async () => {
-      [tags, settings, subredditVisits] = await Promise.all([
-        getTags(),
-        getSettings(),
-        getSubredditVisits(),
-      ]);
-      if (disposed) return;
+      try {
+        [tags, settings, subredditVisits] = await Promise.all([
+          getTags(),
+          getSettings(),
+          getSubredditVisits(),
+        ]);
+      } catch {
+        // Common after extension reload: old content script's storage calls fail.
+        return;
+      }
+      if (!stillAlive()) return;
       syncControllers(null);
 
       lifecycle.add(
         watchTags((next) => {
+          if (!stillAlive()) return;
           tags = next;
           tagsController.process(document);
           ignoreController.process(document);
@@ -273,6 +336,7 @@ export default defineContentScript({
       );
       lifecycle.add(
         watchSettings((next) => {
+          if (!stillAlive()) return;
           const previous = settings;
           settings = next;
           syncControllers(previous);
@@ -280,6 +344,7 @@ export default defineContentScript({
       );
       lifecycle.add(
         watchSubredditVisits((next) => {
+          if (!stillAlive()) return;
           subredditVisits = next;
           subredditController.process(document);
         }),
@@ -296,5 +361,7 @@ export default defineContentScript({
     };
     window.addEventListener('pagehide', stopAll, { once: true });
     lifecycle.add(() => window.removeEventListener('pagehide', stopAll));
+    // Extension reload/update leaves this tab's old script alive — tear it down.
+    ctx.onInvalidated(stopAll);
   },
 });
