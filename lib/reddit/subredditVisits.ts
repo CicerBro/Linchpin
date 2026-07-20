@@ -47,6 +47,17 @@ function ensureStyles(): void {
       margin: 4px 0 8px;
       padding: 4px 0;
     }
+    /* Old Reddit: sit in the tab row instead of a new header line */
+    #header-bottom-left .tabmenu > #${HINT_ID} {
+      display: inline;
+      list-style: none;
+      margin: 0 0 0 8px;
+      padding: 0;
+      font: 11px/18px verdana, arial, helvetica, sans-serif;
+      color: #888;
+      white-space: nowrap;
+      vertical-align: bottom;
+    }
     .${BADGE_CLASS} {
       font: 600 10px/1.2 system-ui, -apple-system, sans-serif;
       color: #555;
@@ -69,12 +80,26 @@ function clearLinkBadges(): void {
 function upsertHeaderHint(text: string): void {
   ensureStyles();
   let el = document.getElementById(HINT_ID);
-  if (!el) {
-    el = document.createElement('div');
-    el.id = HINT_ID;
+  const ui = detectRedditUi();
 
-    const ui = detectRedditUi();
-    if (ui === 'old') {
+  if (ui === 'old') {
+    const tabmenu = document.querySelector('#header-bottom-left .tabmenu');
+    // Prefer an <li> inside .tabmenu (after "other discussions" / last tab)
+    if (tabmenu) {
+      if (!el || el.tagName !== 'LI' || el.parentElement !== tabmenu) {
+        el?.remove();
+        el = document.createElement('li');
+        el.id = HINT_ID;
+        tabmenu.appendChild(el);
+      }
+      el.textContent = text;
+      return;
+    }
+
+    if (!el || el.tagName === 'LI') {
+      el?.remove();
+      el = document.createElement('div');
+      el.id = HINT_ID;
       const header =
         document.getElementById('header-bottom-left') ||
         document.querySelector('.side .titlebox') ||
@@ -86,14 +111,21 @@ function upsertHeaderHint(text: string): void {
       } else {
         document.body.prepend(el);
       }
-    } else {
-      const anchor =
-        document.querySelector('shreddit-subreddit-header-buttons') ||
-        document.querySelector('shreddit-subreddit-header') ||
-        document.querySelector('shreddit-app');
-      if (anchor) anchor.insertAdjacentElement('beforebegin', el);
-      else document.body.prepend(el);
     }
+    el.textContent = text;
+    return;
+  }
+
+  if (!el || el.tagName === 'LI') {
+    el?.remove();
+    el = document.createElement('div');
+    el.id = HINT_ID;
+    const anchor =
+      document.querySelector('shreddit-subreddit-header-buttons') ||
+      document.querySelector('shreddit-subreddit-header') ||
+      document.querySelector('shreddit-app');
+    if (anchor) anchor.insertAdjacentElement('beforebegin', el);
+    else document.body.prepend(el);
   }
   el.textContent = text;
 }

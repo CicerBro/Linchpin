@@ -208,8 +208,9 @@ function mountFixedFallback(root: HTMLElement): void {
 }
 
 function mountOldReddit(root: HTMLElement): void {
+  // Stay in-flow with the compact userbar — oversized height expands #header-bottom-right upward
   root.style.cssText =
-    'display:inline-flex;align-items:center;margin:0 8px;vertical-align:middle;position:relative;z-index:2147483000;';
+    'display:inline;margin:0 6px 0 0;padding:0;border:0;background:transparent;vertical-align:baseline;line-height:12px;position:relative;z-index:1;';
   const anchor = findOldRedditAnchor();
   if (anchor && root.parentElement !== anchor) {
     const user = anchor.querySelector('.user');
@@ -249,7 +250,12 @@ function getOrCreateRoot(existing: HTMLElement | null): HTMLElement {
   return root;
 }
 
-function renderPanel(shadow: ShadowRoot, store: AccountStore, busy: boolean): void {
+function renderPanel(
+  shadow: ShadowRoot,
+  store: AccountStore,
+  busy: boolean,
+  compact = false,
+): void {
   const summaries = store.accounts.map(accountPublicSummary);
   const active = store.activeAccountId
     ? summaries.find((a) => a.id === store.activeAccountId)
@@ -262,10 +268,48 @@ function renderPanel(shadow: ShadowRoot, store: AccountStore, busy: boolean): vo
     return 'No session yet';
   };
 
-  shadow.innerHTML = `
-    <style>
-      :host { all: initial; }
-      * { box-sizing: border-box; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; }
+  // Old Reddit userbar is ~12px line-height; a tall pill expands #header-bottom-right upward
+  // into the topnav. Compact mode keeps Linchpin terracotta, just quieter and smaller.
+  const hostCss = compact
+    ? `
+      .wrap {
+        position: relative;
+        display: inline;
+        height: auto;
+        line-height: 12px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        max-width: 132px;
+        height: 16px;
+        padding: 0 7px;
+        margin: 0;
+        border-radius: 3px;
+        border: 1px solid rgba(138, 61, 20, 0.35);
+        background: #fff8f3;
+        color: #8a3d14;
+        font: 700 10px/16px verdana, arial, helvetica, sans-serif;
+        cursor: pointer;
+        box-shadow: none;
+        white-space: nowrap;
+        vertical-align: baseline;
+        transform: none;
+      }
+      .btn:hover {
+        background: #fdeede;
+        border-color: rgba(138, 61, 20, 0.55);
+      }
+      .btn[disabled] { opacity: 0.6; cursor: wait; }
+      .name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 64px;
+      }
+      .chev { opacity: 0.55; font-size: 9px; flex-shrink: 0; }
+    `
+    : `
       .wrap {
         position: relative;
         display: inline-flex;
@@ -301,6 +345,13 @@ function renderPanel(shadow: ShadowRoot, store: AccountStore, busy: boolean): vo
         max-width: 72px;
       }
       .chev { opacity: 0.55; font-size: 10px; flex-shrink: 0; }
+    `;
+
+  shadow.innerHTML = `
+    <style>
+      :host { all: initial; }
+      * { box-sizing: border-box; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; }
+      ${hostCss}
       /* popover → top layer, above Reddit header tooltips */
       .menu {
         position: fixed;
@@ -579,7 +630,7 @@ export function startAccountMenu(): AccountMenuHandle {
   const paint = () => {
     if (!shadow) return;
     const wasOpen = open;
-    renderPanel(shadow, store, busy);
+    renderPanel(shadow, store, busy, placement === 'old');
     bind(shadow);
     if (wasOpen) {
       const menu = shadow.getElementById('menu');
