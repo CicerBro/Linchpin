@@ -2,7 +2,7 @@
 
 **A lightweight personal browser toolkit for Reddit, search, media, JSON, and AI summaries.**
 
-![Linchpin icon](./public/linchpin.svg)
+![Linchpin icon](./public/icon/linchpin.svg)
 
 Linchpin is a Manifest V3 extension for Chromium browsers and Firefox, built with [WXT](https://wxt.dev). It keeps ambient work site-scoped and event-driven; PiP and page summarization run only after a user action.
 
@@ -13,11 +13,11 @@ Linchpin is not affiliated with Reddit, Google, YouTube, RES, Callum Locke, or a
 | Area         | Features                                                                                                                           |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
 | Reddit       | User tags and ignore rules, account switching, bounded old-Reddit infinite scroll, subreddit visit hints, and new-comment counts   |
-| JSON         | Automatic detection, lazy tree rendering, raw/formatted views, expand/collapse, copy, theme selection, and unsafe-integer warnings |
+| JSON         | Automatic detection, an initially expanded tree with individual-node collapse, clickable links, raw/formatted views, copy, theme selection, array-index and item-count controls, and unsafe-integer warnings |
 | Google       | Restored Maps search tab and a View Image action on Google Images                                                                  |
 | YouTube      | Optional CSS-first Shorts removal and `/shorts/…` to `/watch?v=…` conversion                                                       |
 | Media        | User-triggered native Picture-in-Picture for the most useful visible video                                                         |
-| AI summaries | User-triggered extraction and plain-text summaries using OpenAI, Anthropic, xAI, Kimi/Moonshot, Gemini, GLM/Zhipu, or OpenRouter   |
+| AI summaries | User-triggered article extraction and Markdown summaries using OpenAI, Anthropic, xAI, Kimi, Gemini, GLM, or OpenRouter; per-format defaults, one-time model overrides, language control, and rich-text or Markdown copy |
 
 Settings are grouped by feature and can be changed independently. Existing version 0.2 settings are migrated on first run.
 
@@ -53,12 +53,13 @@ API keys, Reddit cookies, and TOTP secrets are stored only in extension-local st
 
 ## Using tab summaries
 
-1. Configure a provider and API key in the popup, then choose a default from the models Linchpin loads from that provider.
+1. Configure a provider and API key in the popup. Linchpin loads compatible models and lets you choose separate defaults for **Brief**, **Bullets**, and **Detailed** summaries.
 2. Open the page to summarize and choose **Summarize this tab**.
-3. Review the extracted title, site, and text length, then choose from the provider's currently available models.
-4. Start the request, or close/cancel without sending anything.
+3. Review the extracted title, site, language, and text length. Use the saved defaults or make a one-time provider/model override without changing them.
+4. Choose **Brief**, **Bullets**, or **Detailed**. Optionally request English, Dutch, Portuguese, Spanish, German, or Russian; otherwise Linchpin follows the article language.
+5. The provider returns GitHub-Flavored Markdown, which Linchpin sanitizes and renders. Copy it as rich text for documents and chat apps, or as the original Markdown.
 
-Extraction injects Mozilla Readability only after the user requests a summary and runs it against a clone of the live document. It falls back to Schema.org `articleBody`, selected text, `article`, `main`, or bounded visible body text. Content is converted to plain text, capped at about 80,000 characters, treated as untrusted input, and never given browser tools.
+Extraction injects Mozilla Readability only after the user requests a summary and runs it against a clone of the live document. It falls back to Schema.org articleBody, selected text, article, main, or bounded visible body text. Extracted content is sent as plain text, capped at about 80,000 characters, treated as untrusted input, and never given browser tools. Summary requests use a low temperature (0.3) to keep results grounded and factual.
 
 ## Reddit account switching
 
@@ -82,7 +83,7 @@ Visit histories are pruned during startup/writes, never by a timer: threads keep
 - Site scripts process added subtrees instead of repeatedly scanning the full document.
 - YouTube removal is CSS-first.
 - PiP and summary extraction install no persistent all-page observers.
-- JSON branches render only when expanded and input is limited to 10 MB.
+- JSON input is limited to 10 MB. The tree starts expanded, while individual child branches are materialized on demand and can be collapsed independently.
 
 ## Development
 
@@ -98,6 +99,6 @@ Inspect the generated Chromium and Firefox manifests after permission or entrypo
 
 ## Third-party code
 
-The JSON formatter adapts runtime behavior from Callum Locke's `json-formatter` v0.8.0 (`27aa995`) under the BSD-3-Clause license. See `[lib/jsonFormatter/THIRD_PARTY_NOTICES.md](lib/jsonFormatter/THIRD_PARTY_NOTICES.md)` and the formatter source headers for attribution and Linchpin-specific changes. `@mozilla/readability` is used only during user-triggered summary extraction under its Apache-2.0 license.
+The JSON formatter adapts runtime behavior from Callum Locke’s json-formatter v0.8.0 (27aa995) under the BSD-3-Clause license. See [the formatter notices](lib/jsonFormatter/THIRD_PARTY_NOTICES.md) and source headers for attribution and Linchpin-specific changes. Mozilla Readability is used only during user-triggered summary extraction under its Apache-2.0 license. marked renders provider Markdown and DOMPurify sanitizes that rendered HTML before it is displayed or copied as rich text.
 
-Linchpin's original code remains under the [MIT License](LICENSE).
+Linchpin's original code remains under the [WTFPL](LICENSE.md).
