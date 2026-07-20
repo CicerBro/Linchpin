@@ -2,7 +2,7 @@
 
 **A lightweight personal browser toolkit for Reddit, search, media, JSON, and AI summaries.**
 
-![Linchpin icon](./public/icon/linchpin.svg)
+![Linchpin icon](./public/icon/128.png)
 
 Linchpin is a Manifest V3 extension for Chromium browsers and Firefox, built with [WXT](https://wxt.dev). It keeps ambient work site-scoped and event-driven; PiP and page summarization run only after a user action.
 
