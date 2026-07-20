@@ -77,7 +77,7 @@ async function reload(): Promise<void> {
   accounts = await getAccountStore();
   recoveryAvailable = Boolean(await getAccountRecovery());
   if (seed.status === 'imported') {
-    statusMsg = `Imported ${seed.added} RES tags from Brave seed`;
+    statusMsg = `Imported ${seed.added} RES tags from bundled Chromium seed`;
   }
   render();
 }
@@ -175,17 +175,54 @@ function toolSettingsHtml(): string {
 }
 
 function importHtml(): string {
+  const showChromiumSeed = import.meta.env.BROWSER !== 'firefox';
+  const seedAction = showChromiumSeed
+    ? `
+      <div class="data-action">
+        <div class="data-action-copy">
+          <strong>Bundled Chromium RES seed</strong>
+          <span>Optional starter tags from a Chrome/Brave LevelDB export (not Firefox). Merges into your existing users. See the README to regenerate this file with <code>npm run export:res-tags</code>.</span>
+        </div>
+        <button type="button" id="import-seed">Load bundled seed</button>
+      </div>`
+    : '';
+
   return `
     <section class="panel import-panel">
       <p class="eyebrow">Portable and private</p>
-      <h2>Import or export</h2>
-      <p class="help">Paste a Linchpin backup or a RES tag export. Merges Reddit users and visits; replaces settings when present. <strong>Never includes account cookies or TOTP secrets.</strong></p>
+      <h2>Import &amp; export</h2>
+      <p class="help">Backups never include account cookies, TOTP secrets, or API keys.</p>
+
+      <h3 class="data-section-title">Import</h3>
+      <p class="help">Paste a Linchpin backup or a RES-style tag JSON. Merges Reddit users and visits; replaces settings when the file includes them.</p>
       <textarea id="import-json" rows="4" placeholder='{"settings":{…},"reddit":{"users":{"username":{"label":"bot"}}}}'></textarea>
-      <div class="actions">
-        <button type="button" id="import-btn" class="primary">Import</button>
-        <button type="button" id="import-seed">Load seed users</button>
-        <button type="button" id="export-btn">Export Linchpin JSON</button>
-        <button type="button" id="export-tags-btn">Export Reddit users only</button>
+      <div class="data-actions">
+        <div class="data-action">
+          <div class="data-action-copy">
+            <strong>Paste above</strong>
+            <span>Apply the JSON in the box to this browser profile.</span>
+          </div>
+          <button type="button" id="import-btn" class="primary">Import pasted JSON</button>
+        </div>
+        ${seedAction}
+      </div>
+
+      <h3 class="data-section-title">Export</h3>
+      <div class="data-actions">
+        <div class="data-action">
+          <div class="data-action-copy">
+            <strong>Full Linchpin backup</strong>
+            <span>Settings, Reddit users, and visit history as one JSON file.</span>
+          </div>
+          <button type="button" id="export-btn">Download full backup</button>
+        </div>
+        <div class="data-action">
+          <div class="data-action-copy">
+            <strong>Reddit users only</strong>
+            <span>Just tags and ignore rules — useful for sharing or RES-style handoff.</span>
+          </div>
+          <button type="button" id="export-tags-btn">Download Reddit users</button>
+        </div>
       </div>
     </section>
   `;
@@ -654,7 +691,7 @@ function bind(): void {
       const result = await mergeTags(parsed);
       tags = await getTags();
       setStatus(
-        `Seed loaded: ${result.added} added, ${result.updated} merged (${Object.keys(tags).length} total)`,
+        `Chromium RES seed: ${result.added} added, ${result.updated} merged (${Object.keys(tags).length} total)`,
       );
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Seed import failed');
