@@ -154,7 +154,11 @@ async function render(): Promise<void> {
     ];
     if (extracted.byline) rows.push(['Byline', extracted.byline]);
     if (extracted.language) rows.push(['Language', extracted.language]);
-    for (const [term, value] of rows) metadata.append(element('dt', { text: term }), element('dd', { text: value }));
+    for (const [term, value] of rows) {
+      const item = element('div', { className: 'metadata-item' });
+      item.append(element('dt', { text: term }), element('dd', { text: value }));
+      metadata.append(item);
+    }
     preview.append(metadata);
     const url = element('a', { className: 'url', text: extracted.url });
     url.href = extracted.url;
@@ -211,7 +215,9 @@ async function render(): Promise<void> {
       modelSelect.disabled = true;
     }
   }
-  controls.append(field('Provider', providerSelect), field('Model override', modelSelect));
+  const modelControls = element('div', { className: 'model-controls' });
+  modelControls.append(field('Provider', providerSelect), field('Model override', modelSelect));
+  controls.append(modelControls);
   const modelStatus = element('p', {
     className: modelError ? 'warning' : 'model-status',
     text: modelError || (modelsBusy
@@ -256,10 +262,12 @@ async function render(): Promise<void> {
   if (!overrideModel && selectedProvider === config.provider) {
     const defaults = element('dl', { className: 'format-defaults' });
     for (const { id, label } of SUMMARY_STYLE_OPTIONS) {
-      defaults.append(
+      const formatDefault = element('div', { className: 'format-default' });
+      formatDefault.append(
         element('dt', { text: label.split(' — ')[0] }),
         element('dd', { text: config.models[id] }),
       );
+      defaults.append(formatDefault);
     }
     controls.append(defaults);
   }
@@ -445,13 +453,22 @@ app.addEventListener('click', async (event) => {
     return;
   }
   if (button.id === 'copy') {
+    if (button.classList.contains('copied')) return;
     try {
       await navigator.clipboard.writeText(summary);
-      status = 'Summary copied.';
+      button.textContent = 'COPIED';
+      button.classList.add('copied');
+      button.setAttribute('aria-label', 'Summary copied');
+      window.setTimeout(() => {
+        if (!button.isConnected) return;
+        button.textContent = 'Copy summary';
+        button.classList.remove('copied');
+        button.setAttribute('aria-label', 'Copy summary');
+      }, 3000);
     } catch {
       status = 'Copy failed. Select the plain text below to copy it manually.';
+      await render();
     }
-    await render();
     return;
   }
   const style = button.dataset.summaryStyle as SummaryStyle | undefined;

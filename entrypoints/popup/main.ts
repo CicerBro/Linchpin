@@ -186,7 +186,7 @@ function toolSettingsHtml(): string {
 
 function importHtml(): string {
   return `
-    <section class="panel">
+    <section class="panel import-panel">
       <p class="eyebrow">Portable and private</p>
       <h2>Import or export</h2>
       <p class="help">Paste a Linchpin backup or a RES tag export. Merges tags/visits; replaces settings when present. <strong>Never includes account cookies or TOTP secrets.</strong></p>

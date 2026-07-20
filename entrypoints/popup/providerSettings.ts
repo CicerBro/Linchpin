@@ -39,7 +39,7 @@ export async function renderProviderSettings(
   const config = await getSummarizerConfig();
   const settings = await getSettings();
   const section = document.createElement('section');
-  section.className = 'panel';
+  section.className = 'panel provider-panel';
   const eyebrow = document.createElement('p');
   eyebrow.className = 'eyebrow';
   eyebrow.textContent = 'Optional';
