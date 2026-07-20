@@ -27,12 +27,20 @@ Settings are grouped by feature and can be changed independently. Existing versi
 
 ## Install
 
+Grab the latest build from the [GitHub Releases](https://github.com/CicerBro/Linchpin/releases/latest) page (`linchpin-*-chrome.zip` or `linchpin-*-firefox.zip`) and unzip it.
+
+**Chromium (Chrome, Brave, Edge, …):** open `chrome://extensions` (or `brave://extensions` / `edge://extensions`), turn on **Developer mode**, choose **Load unpacked**, and select the unzipped folder.
+
+**Firefox:** open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on…**, and select `manifest.json` inside the unzipped folder. Temporary add-ons are removed when Firefox exits.
+
+## Build
+
 ```bash
 npm install
 npm run build
 ```
 
-Load `dist/chrome-mv3` from the browser's extensions page with Developer mode enabled.
+Load `dist/chrome-mv3` the same way as above (Developer mode → Load unpacked).
 
 For Firefox:
 
@@ -40,7 +48,7 @@ For Firefox:
 npm run build:firefox
 ```
 
-Load `dist/firefox-mv3/manifest.json` from `about:debugging#/runtime/this-firefox`. Temporary Firefox add-ons are removed when Firefox exits.
+Load `dist/firefox-mv3/manifest.json` from `about:debugging#/runtime/this-firefox`.
 
 ## Privacy and permissions
 
@@ -75,7 +83,12 @@ These values are sensitive. Do not commit cookie dumps or TOTP secrets, and reca
 
 The popup accepts Linchpin backups and RES-style tag JSON. Imported entries are validated individually: usernames, labels, colors, links, numeric votes, timestamps, visit maps, and settings must have supported shapes and bounded values. Tag links must use HTTP(S), and colors must be valid CSS colors without markup.
 
-Normal exports include only settings, tags, subreddit visits, and thread visits. Account cookies, TOTP secrets, and provider API keys are always excluded.
+Normal exports (backup version 2) include settings — with summarizer provider and per-style models — plus Reddit data nested under `reddit`:
+
+- `reddit.users` — labels, ignore rules, links, and vote counts (formerly root `tags`)
+- `reddit.subredditVisits` / `reddit.threadVisits` — visit history
+
+Account cookies, TOTP secrets, and provider API keys are always excluded. Version 1 backups with root-level `tags` / visit maps still import.
 
 Visit histories are pruned during startup/writes, never by a timer: threads keep the 5,000 most recent entries and subreddits keep 2,000. Old-Reddit infinite scroll stops after 20 fetched pages or 500 appended posts and provides a normal next-page link.
 
