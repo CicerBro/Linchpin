@@ -6,7 +6,7 @@ export type AuthorNode = {
   element: HTMLElement;
 };
 
-const PROCESSED_ATTR = 'data-rivet-author';
+const PROCESSED_ATTR = 'data-linchpin-author';
 
 /** Old Reddit chrome / nav that contains /user/ links but is not an author attribution. */
 const OLD_SKIP_CLOSEST =
@@ -84,14 +84,20 @@ function queryAllIncludingRoot(
   return out;
 }
 
-/** Hosts whose open shadow roots should be walked — include root when it is an Element. */
+const SHADOW_HOST_SELECTORS = [
+  'shreddit-app',
+  'shreddit-feed',
+  'shreddit-post',
+  'shreddit-comment',
+  'shreddit-profile-comment',
+  'faceplate-tracker',
+  'reddit-header-large',
+  '[slot="authorName"]',
+].join(', ');
+
+/** Only inspect Reddit components that can contain relevant author markup. */
 function shadowHosts(root: ParentNode): Element[] {
-  const hosts: Element[] = [];
-  if (root instanceof Element) hosts.push(root);
-  if (root instanceof Document || root instanceof Element || root instanceof DocumentFragment) {
-    root.querySelectorAll('*').forEach((el) => hosts.push(el));
-  }
-  return hosts;
+  return queryAllIncludingRoot(root, SHADOW_HOST_SELECTORS);
 }
 
 function collectOldRedditAuthors(root: ParentNode): AuthorNode[] {
@@ -101,7 +107,7 @@ function collectOldRedditAuthors(root: ParentNode): AuthorNode[] {
   for (const el of queryAllIncludingRoot(root, OLD_AUTHOR_SELECTORS)) {
     if (seen.has(el)) continue;
     seen.add(el);
-    if (el.closest('.rivet-badge, .rivet-ignored-bar')) continue;
+    if (el.closest('.linchpin-badge, .linchpin-ignored-bar')) continue;
     if (el.closest(OLD_SKIP_CLOSEST)) continue;
     if (isProfileTabHref(el.getAttribute('href'))) continue;
 
@@ -131,7 +137,7 @@ function collectNewRedditAuthors(root: ParentNode): AuthorNode[] {
   for (const el of queryAllIncludingRoot(root, NEW_AUTHOR_SELECTORS)) {
     if (seen.has(el)) continue;
     seen.add(el);
-    if (el.closest('.rivet-badge')) continue;
+    if (el.closest('.linchpin-badge')) continue;
     if (isProfileTabHref(el.getAttribute('href'))) continue;
 
     // Skip header/nav chrome on new Reddit

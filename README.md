@@ -1,176 +1,103 @@
-# Rivet
+# Linchpin
 
-Personal [Manifest V3](https://developer.chrome.com/docs/extensions/mv3) extension for **Brave** (Chromium) and **Firefox**, built with [WXT](https://wxt.dev). A small Reddit utility for tags, ignore/hide, account switching, old-Reddit infinite scroll, subreddit last-visited hints, and new-comment counts — without the ~200 MB RES footprint.
+**A lightweight personal browser toolkit for Reddit, search, media, JSON, and AI summaries.**
 
-**Not affiliated with Reddit or RES.** Personal-use sideload; secrets stay on your device.
+![Linchpin icon](./public/linchpin.svg)
+
+Linchpin is a Manifest V3 extension for Chromium browsers and Firefox, built with [WXT](https://wxt.dev). It keeps ambient work site-scoped and event-driven; PiP and page summarization run only after a user action.
+
+Linchpin is not affiliated with Reddit, Google, YouTube, RES, Callum Locke, or any AI provider.
 
 ## Features
 
-| Feature | Notes |
-|---|---|
-| User tags | Labels + colors next to usernames (old + new Reddit) |
-| Ignore / hide | Collapses posts/comments with a “Show anyway” control |
-| Account switcher | Cookie-based session swap + optional TOTP helper for 2FA re-auth |
-| Infinite scroll | Old Reddit listings only (new Reddit already has this) |
-| Subreddit last-visited | Hint on the current sub + age badges on `/r/` links |
-| New comment counts | Banner + highlight on revisited comment threads |
-| Tag management popup | Add / edit / delete / search / color / ignore |
-| RES import | Merge tags from Brave RES LevelDB export or pasted JSON |
-| Safe backup JSON | Export/import settings + tags + visit maps (never accounts/secrets) |
+| Area         | Features                                                                                                                           |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Reddit       | User tags and ignore rules, account switching, bounded old-Reddit infinite scroll, subreddit visit hints, and new-comment counts   |
+| JSON         | Automatic detection, lazy tree rendering, raw/formatted views, expand/collapse, copy, theme selection, and unsafe-integer warnings |
+| Google       | Restored Maps search tab and a View Image action on Google Images                                                                  |
+| YouTube      | Optional CSS-first Shorts removal and `/shorts/…` to `/watch?v=…` conversion                                                       |
+| Media        | User-triggered native Picture-in-Picture for the most useful visible video                                                         |
+| AI summaries | User-triggered extraction and plain-text summaries using OpenAI, Anthropic, xAI, Kimi/Moonshot, Gemini, GLM/Zhipu, or OpenRouter   |
 
-## Install in Brave (unpacked)
+Settings are grouped by feature and can be changed independently. Existing version 0.2 settings are migrated on first run.
 
-1. Clone this repo and install deps:
-   ```bash
-   npm install
-   npm run build
-   ```
-2. Open `brave://extensions`
-3. Enable **Developer mode**
-4. **Load unpacked** → select `dist/chrome-mv3` (produced by `npm run build`)
-5. Open [old.reddit.com](https://old.reddit.com) or [www.reddit.com](https://www.reddit.com) and confirm the content script injects (popup → add a test tag)
-
-For local development with HMR:
+## Install
 
 ```bash
-npm run dev
+npm install
+npm run build
 ```
 
-## Install in Firefox (temporary / unpacked)
+Load `dist/chrome-mv3` from the browser's extensions page with Developer mode enabled.
 
-Firefox builds are Manifest V3 (`--mv3`).
-
-1. Build:
-   ```bash
-   npm install
-   npm run build:firefox
-   ```
-2. Open `about:debugging#/runtime/this-firefox`
-3. **Load Temporary Add-on…** → select `dist/firefox-mv3/manifest.json`
-4. Open Reddit and confirm Rivet injects (popup → add a test tag)
-
-Notes:
-
-- Temporary add-ons are removed when Firefox quits; reload after each restart (or use `npm run zip:firefox` and install the zip for a longer-lived sideload on Developer Edition / Nightly with xpinstall unsigned, depending on your Firefox channel).
-- Cookie/TOTP account switching uses the same APIs; behavior can differ slightly from Brave (partitioned cookies, container tabs). Prefer Capture → Switch on the same profile first.
-- Dev with HMR: `npm run dev:firefox`
-
-## Account switcher
-
-Rivet stores multiple Reddit accounts (label + optional username) in `chrome.storage.local`.
-
-**Preferred fast path — cookie swap**
-
-1. Log into Reddit as account A in Brave
-2. Open Rivet → **Add account** → label it → **Capture session**
-3. Log into account B (or clear Reddit cookies / use incognito then paste) → add + capture
-4. Click **Switch** to inject that account’s Reddit cookies and reload open Reddit tabs
-
-**When the session is expired — TOTP assist**
-
-1. Edit the account and paste your Reddit 2FA **Base32 TOTP secret** (from Reddit’s 2FA setup / authenticator backup)
-2. Click **TOTP** to show a live 6-digit code (copyable)
-3. Complete Reddit login with the code, then **Capture session** again
-
-### Security caveats (read these)
-
-- Cookies and TOTP secrets are stored **on-device only** in `chrome.storage.local`. They are **not** encrypted beyond whatever Brave provides for extension storage.
-- Rivet only reads/writes cookies for **Reddit-related domains** (`*.reddit.com`, etc.). It does not touch other sites.
-- **Export tags JSON never includes** account cookies, TOTP secrets, or session data.
-- Do **not** commit real cookie dumps, TOTP secrets, or full Brave RES backups with `accountSwitcher` credentials to git.
-- This is for **personal use** on a machine you trust. Anyone with access to your Brave profile can read extension storage.
-- Brave / MV3 may restrict some cookie attributes (partitioned / certain SameSite cases). If injection fails, use TOTP + manual login, then re-capture.
-- Never share your extension storage backup or screenshot TOTP codes.
-
-## RES tag import
-
-### Export from Brave RES storage
-
-RES (extension id `kbmfpngjjgdllneeigpgjifpgocmfgmb`) stores `tag.<username>` entries in LevelDB under your Brave profile.
+For Firefox:
 
 ```bash
-# Export all tag.* keys (votes + labels) and write seed files
-npm run export:res-tags
-
-# Only entries with text / color / ignore / link
-npm run export:res-tags -- --labeled-only
+npm run build:firefox
 ```
 
-This writes:
+Load `dist/firefox-mv3/manifest.json` from `about:debugging#/runtime/this-firefox`. Temporary Firefox add-ons are removed when Firefox exits.
 
-- `data/res-tags-seed.json`
-- `public/data/res-tags-seed.json` (bundled into the extension)
+## Privacy and permissions
 
-The script **never** exports `RESoptions.accountSwitcher` or other credentials.
+- `storage` holds settings, Reddit data, provider configuration, and locally saved account sessions.
+- `cookies` plus Reddit host access power the existing account switcher.
+- `tabs`, `activeTab`, and `scripting` support current-tab metadata and user-triggered PiP or summary extraction.
+- The tiny JSON content script matches general web pages because response pages can use any origin. Its ordinary-HTML path exits after cheap detection checks and it installs no observer after formatting.
+- Google and YouTube scripts match only their own supported hosts.
+- AI provider origins are optional permissions. Linchpin requests access when a configured provider needs it.
 
-### Import / export in the popup
+No analytics, telemetry, cloud account, remote configuration, summary history, or background polling is included.
 
-1. Open the Rivet popup → **Import / export**
-2. **Export Rivet JSON** downloads a safe backup: settings, tags, subreddit visits, and thread visits
-3. **Export tags only** downloads tags without settings/visits
-4. Paste JSON and **Import** — or click **Load seed tags**
-5. Import **merges** tags and visits; when `settings` is present it **replaces** settings
-6. Account cookies / TOTP are **never** exported or imported (any `accounts` key in a file is ignored)
+API keys, Reddit cookies, and TOTP secrets are stored only in extension-local storage. That storage is not strong encryption: anyone who can inspect the browser profile may be able to read it. Secrets are excluded from normal Linchpin exports, and Linchpin does not log authorization headers or extracted page text.
 
-JSON shapes accepted:
+## Using tab summaries
 
-```json
-{
-  "source": "rivet",
-  "version": 1,
-  "settings": {
-    "enableTags": true,
-    "enableIgnore": true,
-    "enableOldRedditInfiniteScroll": true,
-    "enableSubredditLastVisited": true,
-    "enableNewCommentCounts": true,
-    "tagBadgeStyle": "pill"
-  },
-  "tags": {
-    "someuser": { "username": "someuser", "label": "bot", "color": "cornflowerblue", "updatedAt": 0 }
-  },
-  "subredditVisits": { "askreddit": 1710000000000 },
-  "threadVisits": {
-    "t3_abc": { "fullname": "t3_abc", "commentCount": 42, "visitedAt": 1710000000000 }
-  }
-}
-```
+1. Configure a provider and API key in the popup, then choose a default from the models Linchpin loads from that provider.
+2. Open the page to summarize and choose **Summarize this tab**.
+3. Review the extracted title, site, and text length, then choose from the provider's currently available models.
+4. Start the request, or close/cancel without sending anything.
 
-RES-style tag files still work:
+Extraction injects Mozilla Readability only after the user requests a summary and runs it against a clone of the live document. It falls back to Schema.org `articleBody`, selected text, `article`, `main`, or bounded visible body text. Content is converted to plain text, capped at about 80,000 characters, treated as untrusted input, and never given browser tools.
 
-```json
-{
-  "tags": {
-    "someuser": { "text": "bot", "color": "cornflowerblue" },
-    "other": { "ignore": true }
-  }
-}
-```
+## Reddit account switching
 
-## Settings
+Linchpin can capture Reddit cookies for a named local account and later swap them back. An optional Base32 TOTP secret can generate a login code when a captured session expires. Account switches are serialized so popup and in-page controls cannot interleave cookie changes; partial failures are reported for manual recovery.
 
-- Show tags
-- Hide ignored users
-- Infinite scroll (old Reddit)
-- Subreddit last-visited hints
-- New comment counts on threads
-- Badge style: pill (default) or text
+These values are sensitive. Do not commit cookie dumps or TOTP secrets, and recapture a session after completing a manual recovery.
 
-## P3 page UI
+## Import and export
 
-- **Subreddit last-visited:** On `/r/foo`, a hint under the header shows when you last visited. Listing links can show a small “visited Xm ago” badge.
-- **New comments:** On `/comments/…` threads you have opened before, a banner shows how many comments were added since the last visit; **Highlight new** outlines newer comments.
+The popup accepts Linchpin backups and RES-style tag JSON. Imported entries are validated individually: usernames, labels, colors, links, numeric votes, timestamps, visit maps, and settings must have supported shapes and bounded values. Tag links must use HTTP(S), and colors must be valid CSS colors without markup.
+
+Normal exports include only settings, tags, subreddit visits, and thread visits. Account cookies, TOTP secrets, and provider API keys are always excluded.
+
+Visit histories are pruned during startup/writes, never by a timer: threads keep the 5,000 most recent entries and subreddits keep 2,000. Old-Reddit infinite scroll stops after 20 fetched pages or 500 appended posts and provides a normal next-page link.
+
+## Performance model
+
+- No polling timers in ordinary content scripts.
+- Reddit and Google mutations are deduplicated and flushed at most once per animation frame, with a microtask fallback for hidden tabs.
+- Features have explicit start/stop cleanup and only the changed feature is restarted.
+- Site scripts process added subtrees instead of repeatedly scanning the full document.
+- YouTube removal is CSS-first.
+- PiP and summary extraction install no persistent all-page observers.
+- JSON branches render only when expanded and input is limited to 10 MB.
 
 ## Development
 
 ```bash
-npm run compile        # Typecheck
-npm run build          # Brave/Chromium → dist/chrome-mv3
-npm run build:firefox  # Firefox MV3 → dist/firefox-mv3
-npm run zip            # Zip Chromium build
-npm run zip:firefox    # Zip Firefox MV3 build
+npm run compile
+npm run build
+npm run build:firefox
+npm run zip
+npm run zip:firefox
 ```
 
-## License
+Inspect the generated Chromium and Firefox manifests after permission or entrypoint changes. The implementation intentionally uses plain TypeScript and DOM APIs rather than a popup framework or full AI SDK.
 
-MIT
+## Third-party code
+
+The JSON formatter adapts runtime behavior from Callum Locke's `json-formatter` v0.8.0 (`27aa995`) under the BSD-3-Clause license. See `[lib/jsonFormatter/THIRD_PARTY_NOTICES.md](lib/jsonFormatter/THIRD_PARTY_NOTICES.md)` and the formatter source headers for attribution and Linchpin-specific changes. `@mozilla/readability` is used only during user-triggered summary extraction under its Apache-2.0 license.
+
+Linchpin's original code remains under the [MIT License](LICENSE).

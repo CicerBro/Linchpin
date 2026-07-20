@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title">
+  <title id="title">Linchpin</title>
+  <g fill="#292e33">
+    <path id="plate" d="M236 40H480V342L408 378L342 480H40V236C40 128 128 40 236 40Z"/>
+    <use href="#plate" transform="rotate(90 512 512)"/>
+    <use href="#plate" transform="rotate(180 512 512)"/>
+    <use href="#plate" transform="rotate(270 512 512)"/>
+  </g>
+  <circle cx="512" cy="512" r="112" fill="#42df86"/>
+</svg>

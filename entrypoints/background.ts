@@ -1,50 +1,91 @@
 import {
   captureSessionForAccount,
+  restorePreviousAccountSession,
   switchToAccount,
 } from '../lib/accounts/switcher';
 import { generateTotp } from '../lib/accounts/totp';
-import type { RivetMessage } from '../lib/accounts/messages';
-import { getAccountStore } from '../lib/storage';
+import type { LinchpinMessage } from '../lib/accounts/messages';
+import { getAccountStore, initializeStorage } from '../lib/storage';
 import { ensureResSeedImported } from '../lib/import/ensureSeed';
+import { isStorageMutationMessage } from '../lib/core/messages';
+import { executeStorageMutation } from '../lib/storage/repositories';
 
 export default defineBackground(() => {
-  console.info('[rivet] background ready', { id: browser.runtime.id });
+  console.info('[linchpin] background ready', { id: browser.runtime.id });
 
-  const runSeed = () => {
-    void ensureResSeedImported().then((result) => {
-      if (result.status === 'imported') {
-        console.info('[rivet] brought over RES tags', result);
-      } else if (result.status === 'error') {
-        console.warn('[rivet] RES seed import failed', result.error);
-      }
-    });
+  const actionIcons = {
+    light: {
+      16: 'icon/16.png',
+      32: 'icon/32.png',
+      48: 'icon/48.png',
+    },
+    dark: {
+      16: 'icon/dark-theme-16.png',
+      32: 'icon/dark-theme-32.png',
+      48: 'icon/dark-theme-48.png',
+    },
+  } as const;
+
+  let operationTail: Promise<unknown> = Promise.resolve();
+  const serialize = <T>(operation: () => Promise<T>): Promise<T> => {
+    const result = operationTail.then(operation, operation);
+    operationTail = result.then(() => undefined, () => undefined);
+    return result;
   };
 
-  runSeed();
-  browser.runtime.onInstalled.addListener(runSeed);
-  browser.runtime.onStartup.addListener(runSeed);
+  const runStartup = () => {
+    void initializeStorage()
+      .then(() => ensureResSeedImported())
+      .then((result) => {
+        if (result.status === 'imported') {
+          console.info('[linchpin] brought over RES tags', result);
+        } else if (result.status === 'error') {
+          console.warn('[linchpin] RES seed import failed', result.error);
+        }
+      })
+      .catch((error) => console.warn('[linchpin] storage startup failed', error));
+  };
 
-  browser.runtime.onMessage.addListener((message: RivetMessage) => {
+  runStartup();
+  browser.runtime.onInstalled.addListener(runStartup);
+  browser.runtime.onStartup.addListener(runStartup);
+
+  browser.runtime.onMessage.addListener((message: LinchpinMessage | unknown) => {
     if (!message || typeof message !== 'object' || !('type' in message)) {
       return undefined;
     }
 
-    if (message.type === 'rivet:ping') {
+    if (isStorageMutationMessage(message)) {
+      return serialize(() => executeStorageMutation(message));
+    }
+    const linchpinMessage = message as LinchpinMessage;
+
+    if (linchpinMessage.type === 'linchpin:ping') {
       return Promise.resolve({ ok: true });
     }
 
-    if (message.type === 'rivet:capture-session') {
-      return captureSessionForAccount(message.accountId);
+    if (linchpinMessage.type === 'linchpin:set-action-icon-theme') {
+      return browser.action
+        .setIcon({ path: actionIcons[linchpinMessage.theme] })
+        .then(() => ({ ok: true as const }));
     }
 
-    if (message.type === 'rivet:switch-account') {
-      return switchToAccount(message.accountId);
+    if (linchpinMessage.type === 'linchpin:capture-session') {
+      return serialize(() => captureSessionForAccount(linchpinMessage.accountId));
     }
 
-    if (message.type === 'rivet:totp') {
+    if (linchpinMessage.type === 'linchpin:switch-account') {
+      return serialize(() => switchToAccount(linchpinMessage.accountId));
+    }
+
+    if (linchpinMessage.type === 'linchpin:restore-account-session') {
+      return serialize(() => restorePreviousAccountSession());
+    }
+
+    if (linchpinMessage.type === 'linchpin:totp') {
       return (async () => {
         const store = await getAccountStore();
-        const account = store.accounts.find((a) => a.id === message.accountId);
+        const account = store.accounts.find((a) => a.id === linchpinMessage.accountId);
         if (!account?.totpSecret) {
           return {
             ok: false as const,

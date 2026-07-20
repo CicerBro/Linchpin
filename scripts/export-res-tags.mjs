@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Export RES user tags from Brave's LevelDB storage into JSON for Rivet import.
+ * Export RES user tags from Brave's LevelDB storage into JSON for Linchpin import.
  *
  * Usage:
  *   node scripts/export-res-tags.mjs
@@ -78,7 +78,7 @@ Options:
     process.exit(1);
   }
 
-  const copy = path.join(os.tmpdir(), `rivet-leveldb-${Date.now()}`);
+  const copy = path.join(os.tmpdir(), `linchpin-leveldb-${Date.now()}`);
   fs.cpSync(src, copy, { recursive: true });
 
   // classic-level is an optional dep — install if missing

@@ -6,9 +6,9 @@ import {
 import type { Settings, SubredditVisitMap } from '../types';
 import { detectRedditUi } from './detect';
 
-const HINT_ID = 'rivet-subreddit-last-visited';
-const BADGE_CLASS = 'rivet-sub-visit-badge';
-const LINK_MARK = 'data-rivet-sub-visit';
+const HINT_ID = 'linchpin-subreddit-last-visited';
+const BADGE_CLASS = 'linchpin-sub-visit-badge';
+const LINK_MARK = 'data-linchpin-sub-visit';
 
 function formatRelative(ts: number, now = Date.now()): string {
   const sec = Math.max(0, Math.floor((now - ts) / 1000));
@@ -41,9 +41,9 @@ function allowLinkBadgesOnThisPage(): boolean {
 }
 
 function ensureStyles(): void {
-  if (document.getElementById('rivet-subvisit-styles')) return;
+  if (document.getElementById('linchpin-subvisit-styles')) return;
   const style = document.createElement('style');
-  style.id = 'rivet-subvisit-styles';
+  style.id = 'linchpin-subvisit-styles';
   style.textContent = `
     #${HINT_ID} {
       font: 12px/1.4 system-ui, -apple-system, sans-serif;
@@ -120,8 +120,6 @@ function isAnnotatableSubLink(
   a: HTMLAnchorElement,
   name: string,
 ): boolean {
-  if (a.hasAttribute(LINK_MARK)) return false;
-  if (a.nextElementSibling?.classList.contains(BADGE_CLASS)) return false;
   if (
     a.closest(
       [
@@ -176,11 +174,9 @@ function annotateSubredditLinks(
   }
 
   ensureStyles();
-  const scope = root instanceof Element ? root : document;
-  const links = scope.querySelectorAll?.<HTMLAnchorElement>(
-    'a.subreddit, a[href*="/r/"]',
-  );
-  if (!links) return;
+  const selector = 'a.subreddit, a[href*="/r/"]';
+  const links = Array.from(root.querySelectorAll?.<HTMLAnchorElement>(selector) ?? []);
+  if (root instanceof HTMLAnchorElement && root.matches(selector)) links.unshift(root);
 
   for (const a of links) {
     const href = a.getAttribute('href') || '';
@@ -189,9 +185,21 @@ function annotateSubredditLinks(
     const name = normalizeSubreddit(m[1]);
     const ts = visits[name];
     if (!ts) continue;
+    const signature = `${name}:${ts}`;
+    const adjacent = a.nextElementSibling;
+    if (
+      a.getAttribute(LINK_MARK) === signature &&
+      adjacent?.classList.contains(BADGE_CLASS)
+    ) {
+      continue;
+    }
+    if (a.hasAttribute(LINK_MARK)) {
+      if (adjacent?.classList.contains(BADGE_CLASS)) adjacent.remove();
+      a.removeAttribute(LINK_MARK);
+    }
     if (!isAnnotatableSubLink(a, name)) continue;
 
-    a.setAttribute(LINK_MARK, name);
+    a.setAttribute(LINK_MARK, signature);
     const badge = document.createElement('span');
     badge.className = BADGE_CLASS;
     badge.dataset.sub = name;
@@ -206,7 +214,7 @@ function annotateSubredditLinks(
  * after a short delay so "last visit" means the previous session.
  */
 export function startSubredditLastVisited(settings: Settings): () => void {
-  if (!settings.enableSubredditLastVisited) {
+  if (!settings.reddit.subredditVisits) {
     document.getElementById(HINT_ID)?.remove();
     clearLinkBadges();
     return () => undefined;
@@ -227,7 +235,7 @@ export function startSubredditLastVisited(settings: Settings): () => void {
           `Last visited r/${sub}: ${formatRelative(prev)} (${new Date(prev).toLocaleString()})`,
         );
       } else {
-        upsertHeaderHint(`First Rivet visit to r/${sub}`);
+        upsertHeaderHint(`First Linchpin visit to r/${sub}`);
       }
 
       timer = window.setTimeout(() => {
@@ -251,7 +259,7 @@ export function refreshSubredditVisitBadges(
   settings: Settings,
   root: ParentNode = document,
 ): void {
-  if (!settings.enableSubredditLastVisited) {
+  if (!settings.reddit.subredditVisits) {
     document.getElementById(HINT_ID)?.remove();
     clearLinkBadges();
     return;

@@ -3,9 +3,9 @@ import { isIgnoredTag, normalizeUsername } from '../storage';
 import { findAuthorNodes } from './authors';
 import { detectRedditUi } from './detect';
 
-const HIDDEN_ATTR = 'data-rivet-hidden';
-const REVEALED_ATTR = 'data-rivet-revealed';
-const BAR_CLASS = 'rivet-ignored-bar';
+const HIDDEN_ATTR = 'data-linchpin-hidden';
+const REVEALED_ATTR = 'data-linchpin-revealed';
+const BAR_CLASS = 'linchpin-ignored-bar';
 
 function findContainer(authorEl: HTMLElement): HTMLElement | null {
   const ui = detectRedditUi();
@@ -28,11 +28,11 @@ function findContainer(authorEl: HTMLElement): HTMLElement | null {
 }
 
 function ensureRevealStyles(): void {
-  if (document.getElementById('rivet-hide-styles')) return;
+  if (document.getElementById('linchpin-hide-styles')) return;
   const style = document.createElement('style');
-  style.id = 'rivet-hide-styles';
+  style.id = 'linchpin-hide-styles';
   style.textContent = `
-    .rivet-ignored-collapsed > :not(.${BAR_CLASS}) {
+    .linchpin-ignored-collapsed > :not(.${BAR_CLASS}) {
       display: none !important;
     }
     .${BAR_CLASS} {
@@ -60,7 +60,7 @@ function ensureRevealStyles(): void {
 }
 
 function unhideContainer(container: Element): void {
-  container.classList.remove('rivet-ignored-collapsed');
+  container.classList.remove('linchpin-ignored-collapsed');
   container.removeAttribute(HIDDEN_ATTR);
   container.removeAttribute(REVEALED_ATTR);
   container.querySelector(`.${BAR_CLASS}`)?.remove();
@@ -69,12 +69,17 @@ function unhideContainer(container: Element): void {
 function makeBar(username: string, container: HTMLElement): HTMLElement {
   const bar = document.createElement('div');
   bar.className = BAR_CLASS;
-  bar.innerHTML = `<span>Ignored user <strong>u/${username}</strong></span>`;
+  const message = document.createElement('span');
+  message.append('Ignored user ');
+  const strong = document.createElement('strong');
+  strong.textContent = `u/${username}`;
+  message.appendChild(strong);
+  bar.appendChild(message);
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.textContent = 'Show anyway';
   btn.addEventListener('click', () => {
-    container.classList.remove('rivet-ignored-collapsed');
+    container.classList.remove('linchpin-ignored-collapsed');
     // Keep username on HIDDEN_ATTR so undo-ignore can still clear this container
     container.setAttribute(REVEALED_ATTR, '1');
     bar.remove();
@@ -84,8 +89,10 @@ function makeBar(username: string, container: HTMLElement): HTMLElement {
 }
 
 /** Clear collapse/bar for containers whose user is no longer ignored. */
-function clearStaleHides(tags: UserTagMap): void {
-  document.querySelectorAll(`[${HIDDEN_ATTR}]`).forEach((el) => {
+function clearStaleHides(tags: UserTagMap, root: ParentNode): void {
+  const hidden = Array.from(root.querySelectorAll?.(`[${HIDDEN_ATTR}]`) ?? []);
+  if (root instanceof Element && root.hasAttribute(HIDDEN_ATTR)) hidden.unshift(root);
+  hidden.forEach((el) => {
     const username = normalizeUsername(el.getAttribute(HIDDEN_ATTR) || '');
     // Legacy: older builds stored "revealed" in HIDDEN_ATTR
     if (!username || username === 'revealed' || !isIgnoredTag(tags[username])) {
@@ -101,12 +108,12 @@ export function applyIgnoreHides(
 ): void {
   ensureRevealStyles();
 
-  if (!settings.enableIgnore) {
+  if (!settings.reddit.ignore) {
     document.querySelectorAll(`[${HIDDEN_ATTR}]`).forEach(unhideContainer);
     return;
   }
 
-  clearStaleHides(tags);
+  clearStaleHides(tags, root);
 
   for (const { username, element: authorEl } of findAuthorNodes(root)) {
     const tag = tags[username];
@@ -117,9 +124,9 @@ export function applyIgnoreHides(
     if (container.hasAttribute(REVEALED_ATTR)) continue;
     // Legacy revealed marker
     if (container.getAttribute(HIDDEN_ATTR) === 'revealed') continue;
-    if (container.classList.contains('rivet-ignored-collapsed')) continue;
+    if (container.classList.contains('linchpin-ignored-collapsed')) continue;
 
-    container.classList.add('rivet-ignored-collapsed');
+    container.classList.add('linchpin-ignored-collapsed');
     container.setAttribute(HIDDEN_ATTR, username);
     if (!container.querySelector(`.${BAR_CLASS}`)) {
       container.insertBefore(makeBar(username, container), container.firstChild);

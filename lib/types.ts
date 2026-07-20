@@ -12,23 +12,79 @@ export type UserTag = {
 export type UserTagMap = Record<string, UserTag>;
 
 export type TagBadgeStyle = 'pill' | 'text';
+export type JsonItemCountMode = 'hide' | 'show' | 'threshold';
 
-export type Settings = {
-  enableTags: boolean;
-  enableIgnore: boolean;
-  enableOldRedditInfiniteScroll: boolean;
-  enableSubredditLastVisited: boolean;
-  enableNewCommentCounts: boolean;
-  tagBadgeStyle: TagBadgeStyle;
+export type FeatureSettings = {
+  reddit: {
+    tags: boolean;
+    ignore: boolean;
+    accountSwitcher: boolean;
+    infiniteScroll: boolean;
+    subredditVisits: boolean;
+    newCommentCounts: boolean;
+    tagBadgeStyle: TagBadgeStyle;
+  };
+  jsonFormatter: {
+    enabled: boolean;
+    darkMode: 'system' | 'light' | 'dark';
+    showArrayIndices: boolean;
+    itemCountMode: JsonItemCountMode;
+    itemCountThreshold: number;
+  };
+  google: {
+    mapsButton: boolean;
+    viewImage: boolean;
+  };
+  youtube: {
+    removeShorts: boolean;
+  };
+  summarizer: {
+    enabled: boolean;
+    provider: string;
+    model: string;
+  };
 };
 
-export const DEFAULT_SETTINGS: Settings = {
-  enableTags: true,
-  enableIgnore: true,
-  enableOldRedditInfiniteScroll: true,
-  enableSubredditLastVisited: true,
-  enableNewCommentCounts: true,
-  tagBadgeStyle: 'pill',
+/** Kept as an alias so existing imports survive the versioned settings migration. */
+export type Settings = FeatureSettings;
+
+export type SettingsPatch = {
+  reddit?: Partial<FeatureSettings['reddit']>;
+  jsonFormatter?: Partial<FeatureSettings['jsonFormatter']>;
+  google?: Partial<FeatureSettings['google']>;
+  youtube?: Partial<FeatureSettings['youtube']>;
+  summarizer?: Partial<FeatureSettings['summarizer']>;
+};
+
+export type LegacySettings = {
+  enableTags?: boolean;
+  enableIgnore?: boolean;
+  enableOldRedditInfiniteScroll?: boolean;
+  enableSubredditLastVisited?: boolean;
+  enableNewCommentCounts?: boolean;
+  tagBadgeStyle?: TagBadgeStyle;
+};
+
+export const DEFAULT_SETTINGS: FeatureSettings = {
+  reddit: {
+    tags: true,
+    ignore: true,
+    accountSwitcher: true,
+    infiniteScroll: true,
+    subredditVisits: true,
+    newCommentCounts: true,
+    tagBadgeStyle: 'pill',
+  },
+  jsonFormatter: {
+    enabled: true,
+    darkMode: 'system',
+    showArrayIndices: false,
+    itemCountMode: 'hide',
+    itemCountThreshold: 15,
+  },
+  google: { mapsButton: true, viewImage: true },
+  youtube: { removeShorts: false },
+  summarizer: { enabled: true, provider: 'openai', model: '' },
 };
 
 export type RedditUiVersion = 'old' | 'new' | 'unknown';
@@ -74,6 +130,14 @@ export type AccountStore = {
 export const DEFAULT_ACCOUNT_STORE: AccountStore = {
   accounts: [],
   activeAccountId: null,
+};
+
+export type AccountRecoveryState = {
+  createdAt: number;
+  targetAccountId: string;
+  previousAccountId: string | null;
+  previousCookies: StoredCookie[];
+  reason: string;
 };
 
 /** Subreddit name (lowercase, no r/) → last visit timestamp (ms). */

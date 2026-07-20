@@ -12,7 +12,7 @@ export type SeedImportResult =
   | { status: 'error'; error: string };
 
 /**
- * One-shot import of bundled RES seed when Rivet has no tags yet.
+ * One-shot import of bundled RES seed when Linchpin has no tags yet.
  * Safe to call from background + popup; never overwrites existing tags.
  */
 export async function ensureResSeedImported(): Promise<SeedImportResult> {
@@ -36,7 +36,7 @@ export async function ensureResSeedImported(): Promise<SeedImportResult> {
     const tags = parseResTagsJson(json);
     const result = await mergeTags(tags);
     await seedImportedItem.setValue(true);
-    console.info('[rivet] RES seed imported', result);
+    console.info('[linchpin] RES seed imported', result);
     return {
       status: 'imported',
       added: result.added,

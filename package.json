@@ -1,6 +1,6 @@
 {
-  "name": "rivet",
-  "description": "Personal Brave MV3 Reddit utility — tags, ignore, account switcher, infinite scroll. Not affiliated with Reddit or RES.",
+  "name": "linchpin",
+  "description": "A lightweight personal browser toolkit for Reddit, search, media, JSON, and AI summaries.",
   "private": true,
   "version": "0.2.0",
   "type": "module",
@@ -19,5 +19,11 @@
     "classic-level": "^3.0.0",
     "typescript": "^5.9.3",
     "wxt": "^0.20.27"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "dompurify": "^3.4.12",
+    "marked": "^18.0.6",
+    "tom-select": "^2.6.2"
   }
 }

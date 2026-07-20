@@ -5,13 +5,13 @@ import {
 import type { Settings, ThreadVisit } from '../types';
 import { detectRedditUi } from './detect';
 
-const BANNER_ID = 'rivet-new-comment-banner';
-const NEW_ATTR = 'data-rivet-new-comment';
+const BANNER_ID = 'linchpin-new-comment-banner';
+const NEW_ATTR = 'data-linchpin-new-comment';
 
 function ensureStyles(): void {
-  if (document.getElementById('rivet-ncc-styles')) return;
+  if (document.getElementById('linchpin-ncc-styles')) return;
   const style = document.createElement('style');
-  style.id = 'rivet-ncc-styles';
+  style.id = 'linchpin-ncc-styles';
   style.textContent = `
     #${BANNER_ID} {
       font: 13px/1.4 system-ui, -apple-system, sans-serif;
@@ -186,7 +186,7 @@ function showBanner(
  * highlight newer comments, then update the stored count after a delay.
  */
 export function startNewCommentCounts(settings: Settings): () => void {
-  if (!settings.enableNewCommentCounts) {
+  if (!settings.reddit.newCommentCounts) {
     document.getElementById(BANNER_ID)?.remove();
     document.querySelectorAll(`[${NEW_ATTR}]`).forEach((el) => {
       el.removeAttribute(NEW_ATTR);

@@ -5,11 +5,11 @@ import {
   watchAccounts,
 } from '../storage';
 import { detectRedditUi } from './detect';
-import type { RivetMessage } from '../accounts/messages';
+import type { LinchpinMessage } from '../accounts/messages';
 
-const ROOT_ID = 'rivet-account-switcher';
+const ROOT_ID = 'linchpin-account-switcher';
 
-async function send<T>(msg: RivetMessage): Promise<T> {
+async function send<T>(msg: LinchpinMessage): Promise<T> {
   return browser.runtime.sendMessage(msg) as Promise<T>;
 }
 
@@ -19,7 +19,9 @@ function queryDeep<T extends Element>(
 ): T | null {
   const direct = root.querySelector<T>(selector);
   if (direct) return direct;
-  const hosts = root.querySelectorAll<HTMLElement>('*');
+  const hosts = root.querySelectorAll<HTMLElement>(
+    'reddit-header-large, shreddit-app, faceplate-tracker, faceplate-dropdown-menu, faceplate-tooltip',
+  );
   for (const host of hosts) {
     if (!host.shadowRoot) continue;
     const found = queryDeep<T>(host.shadowRoot, selector);
@@ -135,7 +137,7 @@ function advertiseUnitHost(ad: HTMLElement): HTMLElement {
   return node;
 }
 
-/** True when Rivet is connected and immediately before the Advertise *unit* host. */
+/** True when Linchpin is connected and immediately before the Advertise *unit* host. */
 function isPlacedBeforeAdvertise(root: HTMLElement, ad: HTMLElement | null): boolean {
   if (!ad || !root.isConnected) return false;
   const unit = advertiseUnitHost(ad);
@@ -412,8 +414,8 @@ function renderPanel(
       .status.ok { background: #e8f5e9; color: #1b5e20; }
     </style>
     <div class="wrap">
-      <button type="button" class="btn" id="toggle" ${busy ? 'disabled' : ''} title="Rivet account switcher">
-        <span>Rivet</span>
+      <button type="button" class="btn" id="toggle" ${busy ? 'disabled' : ''} title="Linchpin account switcher">
+        <span>Linchpin</span>
         <span class="name">${escapeHtml(label)}</span>
         <span class="chev">▾</span>
       </button>
@@ -458,7 +460,7 @@ function renderPanel(
                   </div>`;
                 })
                 .join('')
-            : `<div class="empty">No accounts yet. Add one in the Rivet popup, then capture a session.</div>`
+            : `<div class="empty">No accounts yet. Add one in the Linchpin popup, then capture a session.</div>`
         }
         </div>
         <div class="status" id="status" hidden></div>
@@ -493,7 +495,9 @@ function setStatus(shadow: ShadowRoot, text: string, kind: 'ok' | 'err' | '' = '
  * Account switcher next to Reddit's user/advertise controls.
  * New Reddit: insert in-flow before Advertise so icons shift right (no overlay).
  */
-export function startAccountMenu(): () => void {
+export type AccountMenuHandle = (() => void) & { process(root: ParentNode): void };
+
+export function startAccountMenu(): AccountMenuHandle {
   let store: AccountStore = { accounts: [], activeAccountId: null };
   let busy = false;
   let open = false;
@@ -568,7 +572,7 @@ export function startAccountMenu(): () => void {
       return;
     }
 
-    // Aiming for in-flow: reposition when Advertise exists and Rivet is not immediately before it
+    // Aiming for in-flow: reposition when Advertise exists and Linchpin is not immediately before it
     if (ad && !isPlacedBeforeAdvertise(root, ad)) {
       reposition();
       return;
@@ -680,7 +684,7 @@ export function startAccountMenu(): () => void {
             ok: boolean;
             message?: string;
             needsRelogin?: boolean;
-          }>({ type: 'rivet:switch-account', accountId: id });
+          }>({ type: 'linchpin:switch-account', accountId: id });
           if (!result.ok) {
             setStatus(s, result.message || 'Switch failed', 'err');
           } else if (result.needsRelogin) {
@@ -724,7 +728,7 @@ export function startAccountMenu(): () => void {
             code?: string;
             remaining?: number;
             error?: string;
-          }>({ type: 'rivet:totp', accountId: id });
+          }>({ type: 'linchpin:totp', accountId: id });
           if (!result.ok || !result.code) {
             setStatus(s, result.error || 'No TOTP', 'err');
             return;
@@ -764,36 +768,6 @@ export function startAccountMenu(): () => void {
     }
   };
 
-  const headerObserver = new MutationObserver(() => {
-    if (disposed) return;
-
-    // Cheap pre-check using stable root ref (not getElementById — misses shadow hosts)
-    if (!root?.isConnected) {
-      scheduleEnsure();
-      return;
-    }
-
-    const ad = findAdvertiseControl();
-    if (isPlacedBeforeAdvertise(root, ad)) return;
-
-    // Fixed mode: only schedule to try upgrade / refresh coords — never treat as missing
-    if (placement === 'fixed') {
-      scheduleEnsure();
-      return;
-    }
-
-    // Aiming for in-flow: Advertise exists and Rivet is not immediately before it
-    if (ad && !isPlacedBeforeAdvertise(root, ad)) {
-      scheduleEnsure();
-      return;
-    }
-
-    // Lost a known in-flow-user parent, or never placed
-    if (placement !== 'in-flow-user' && placement !== 'old') {
-      scheduleEnsure();
-    }
-  });
-
   void (async () => {
     store = await getAccountStore();
     remount();
@@ -805,16 +779,11 @@ export function startAccountMenu(): () => void {
   });
 
   document.addEventListener('click', onDocClick, true);
-  headerObserver.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-  });
 
-  return () => {
+  const cleanup = (() => {
     disposed = true;
     unwatch();
     document.removeEventListener('click', onDocClick, true);
-    headerObserver.disconnect();
     if (ensureTimer) window.clearTimeout(ensureTimer);
     // Prefer stable ref — getElementById cannot see shadow-hosted nodes
     root?.remove();
@@ -822,5 +791,7 @@ export function startAccountMenu(): () => void {
     root = null;
     shadow = null;
     placement = null;
-  };
+  }) as AccountMenuHandle;
+  cleanup.process = () => scheduleEnsure();
+  return cleanup;
 }

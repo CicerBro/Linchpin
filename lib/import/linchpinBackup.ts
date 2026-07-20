@@ -5,15 +5,15 @@ import type {
   ThreadVisitMap,
   UserTagMap,
 } from '../types';
-import { DEFAULT_SETTINGS } from '../types';
 import { parseResTagsJson } from './resTags';
+import { normalizeSettings } from '../storage/migrations';
 
-export const RIVET_BACKUP_VERSION = 1 as const;
+export const LINCHPIN_BACKUP_VERSION = 1 as const;
 
-/** Safe backup — never includes accounts, cookies, or TOTP secrets. */
-export type RivetBackup = {
-  source: 'rivet';
-  version: typeof RIVET_BACKUP_VERSION;
+/** Safe Linchpin backup — never includes accounts, cookies, or TOTP secrets. */
+export type LinchpinBackup = {
+  source: 'linchpin';
+  version: typeof LINCHPIN_BACKUP_VERSION;
   exportedAt: string;
   settings?: Settings;
   tags?: UserTagMap;
@@ -30,7 +30,7 @@ export type ParsedBackup = {
   ignoredAccounts: boolean;
 };
 
-const SETTINGS_KEYS: (keyof Settings)[] = [
+const LEGACY_SETTINGS_KEYS = [
   'enableTags',
   'enableIgnore',
   'enableOldRedditInfiniteScroll',
@@ -45,27 +45,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 export function parseSettingsPartial(raw: unknown): Settings | undefined {
   if (!isPlainObject(raw)) return undefined;
-
-  const next: Settings = { ...DEFAULT_SETTINGS };
-  let touched = false;
-
-  for (const key of SETTINGS_KEYS) {
-    if (!(key in raw)) continue;
-    const value = raw[key];
-    if (key === 'tagBadgeStyle') {
-      if (value === 'pill' || value === 'text') {
-        next.tagBadgeStyle = value;
-        touched = true;
-      }
-      continue;
-    }
-    if (typeof value === 'boolean') {
-      next[key] = value;
-      touched = true;
-    }
-  }
-
-  return touched ? next : undefined;
+  const touched =
+    ['reddit', 'jsonFormatter', 'google', 'youtube', 'summarizer'].some((key) => key in raw) ||
+    LEGACY_SETTINGS_KEYS.some((key) => key in raw);
+  return touched ? normalizeSettings(raw) : undefined;
 }
 
 function parseSubredditVisits(raw: unknown): SubredditVisitMap | undefined {
@@ -103,12 +86,12 @@ function parseThreadVisits(raw: unknown): ThreadVisitMap | undefined {
 }
 
 /**
- * Parse Rivet / RES JSON for import.
- * - Rivet backup: settings + tags + optional visit maps
+ * Parse Linchpin or RES JSON for import.
+ * - Linchpin backup: settings + tags + optional visit maps
  * - Tags-only / RES: `{ tags: … }` or flat tag map
  * Accounts / cookies / TOTP are never imported.
  */
-export function parseRivetBackupJson(raw: unknown): ParsedBackup {
+export function parseLinchpinBackupJson(raw: unknown): ParsedBackup {
   if (!isPlainObject(raw)) {
     throw new Error('Invalid JSON: expected an object');
   }
@@ -138,27 +121,27 @@ export function parseRivetBackupJson(raw: unknown): ParsedBackup {
   return { settings, tags, subredditVisits, threadVisits, ignoredAccounts };
 }
 
-export function parseRivetBackupText(text: string): ParsedBackup {
+export function parseLinchpinBackupText(text: string): ParsedBackup {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch {
     throw new Error('Could not parse JSON');
   }
-  return parseRivetBackupJson(parsed);
+  return parseLinchpinBackupJson(parsed);
 }
 
-export function buildRivetBackup(input: {
+export function buildLinchpinBackup(input: {
   tags: UserTagMap;
   settings: Settings;
   subredditVisits: SubredditVisitMap;
   threadVisits: ThreadVisitMap;
-}): RivetBackup {
+}): LinchpinBackup {
   return {
-    source: 'rivet',
-    version: RIVET_BACKUP_VERSION,
+    source: 'linchpin',
+    version: LINCHPIN_BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
-    settings: input.settings,
+    settings: normalizeSettings(input.settings),
     tags: input.tags,
     subredditVisits: input.subredditVisits,
     threadVisits: input.threadVisits,

@@ -43,7 +43,7 @@ export function logUiDetectionOnce(): RedditUiVersion {
   const ui = detectRedditUi();
   if (!loggedOnce) {
     loggedOnce = true;
-    console.info(`[rivet] Reddit UI detected: ${ui} (${location.hostname})`);
+    console.info(`[linchpin] Reddit UI detected: ${ui} (${location.hostname})`);
   }
   return ui;
 }

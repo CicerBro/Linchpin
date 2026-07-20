@@ -7,7 +7,7 @@ import {
   voteBadgeColors,
 } from './votes';
 
-const BADGE_ATTR = 'data-rivet-badge';
+const BADGE_ATTR = 'data-linchpin-badge';
 
 /** Resolve any CSS color (hex, rgb, named) to sRGB channels via canvas. */
 function resolveCssColor(input: string): { r: number; g: number; b: number } | null {
@@ -61,6 +61,21 @@ function contrastText(bg: string): string {
   return lum > 0.6 ? '#111' : '#fff';
 }
 
+function safeCssColor(value: string | undefined): string | undefined {
+  if (!value || value.length > 100 || /[<>"'`;{}]/.test(value)) return undefined;
+  return CSS.supports('color', value) ? value : undefined;
+}
+
+function safeHttpLink(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function isVoteStyleTag(tag: UserTag): boolean {
   // Custom label/color wins; otherwise net-vote display gets green/red even if a link exists
   if (tag.label?.trim() || tag.color || isIgnoredTag(tag)) return false;
@@ -86,9 +101,9 @@ function shouldShowBadge(tag: UserTag | undefined): tag is UserTag {
   );
 }
 
-function createBadge(tag: UserTag, style: Settings['tagBadgeStyle']): HTMLElement {
+function createBadge(tag: UserTag, style: Settings['reddit']['tagBadgeStyle']): HTMLElement {
   const host = document.createElement('span');
-  host.className = 'rivet-badge';
+  host.className = 'linchpin-badge';
   host.setAttribute(BADGE_ATTR, tag.username);
   host.style.display = 'inline-flex';
   host.style.alignItems = 'center';
@@ -100,13 +115,15 @@ function createBadge(tag: UserTag, style: Settings['tagBadgeStyle']): HTMLElemen
   const label = badgeLabel(tag);
   const score = netVoteScore(tag);
   const voteStyle = isVoteStyleTag(tag);
+  const color = safeCssColor(tag.color);
+  const link = safeHttpLink(tag.link);
 
   let bg: string;
   let fg: string;
   if (voteStyle && score != null) {
     ({ bg, fg } = voteBadgeColors(score));
   } else {
-    bg = tag.color || (isIgnoredTag(tag) ? '#666' : '#455a64');
+    bg = color || (isIgnoredTag(tag) ? '#666' : '#455a64');
     fg = contrastText(bg);
   }
 
@@ -148,14 +165,14 @@ function createBadge(tag: UserTag, style: Settings['tagBadgeStyle']): HTMLElemen
     tag.label ? `label: ${tag.label}` : null,
     isIgnoredTag(tag) ? 'ignored' : null,
     score != null ? `RES votes: +${up} / −${down} → ${formatNetVote(score)}` : null,
-    tag.link || null,
+    link || null,
   ]
     .filter(Boolean)
     .join('\n');
 
-  if (tag.link) {
+  if (link) {
     const a = document.createElement('a');
-    a.href = tag.link;
+    a.href = link;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
     a.textContent = label;
@@ -170,11 +187,11 @@ function createBadge(tag: UserTag, style: Settings['tagBadgeStyle']): HTMLElemen
 
 function removeExistingBadge(authorEl: HTMLElement): void {
   const next = authorEl.nextElementSibling;
-  if (next?.classList.contains('rivet-badge')) {
+  if (next?.classList.contains('linchpin-badge')) {
     next.remove();
   }
   authorEl.parentElement
-    ?.querySelectorAll(`.rivet-badge[${BADGE_ATTR}]`)
+    ?.querySelectorAll(`.linchpin-badge[${BADGE_ATTR}]`)
     .forEach((el) => {
       if (el.previousElementSibling === authorEl) el.remove();
     });
@@ -185,17 +202,23 @@ export function applyTagsToDocument(
   settings: Settings,
   root: ParentNode = document,
 ): void {
-  if (!settings.enableTags) {
-    root.querySelectorAll?.('.rivet-badge')?.forEach((el) => el.remove());
+  if (!settings.reddit.tags) {
+    root.querySelectorAll?.('.linchpin-badge')?.forEach((el) => el.remove());
+    if (root instanceof Element && root.classList.contains('linchpin-badge')) root.remove();
     return;
   }
 
   const authors = findAuthorNodes(root);
   for (const { username, element } of authors) {
     const tag = tags[username];
+    const signature = tag
+      ? `${settings.reddit.tagBadgeStyle}:${tag.updatedAt}:${tag.label ?? ''}:${tag.color ?? ''}:${tag.ignore ? 1 : 0}:${tag.link ?? ''}:${tag.votesUp ?? ''}:${tag.votesDown ?? ''}`
+      : 'none';
+    if (element.dataset.linchpinTagSignature === signature) continue;
+    element.dataset.linchpinTagSignature = signature;
     removeExistingBadge(element);
     if (!shouldShowBadge(tag)) continue;
-    const badge = createBadge(tag, settings.tagBadgeStyle);
+    const badge = createBadge(tag, settings.reddit.tagBadgeStyle);
     element.insertAdjacentElement('afterend', badge);
   }
 }

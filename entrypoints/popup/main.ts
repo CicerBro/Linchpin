@@ -1,9 +1,10 @@
+import 'tom-select/dist/css/tom-select.default.css';
 import './style.css';
 import {
-  accountPublicSummary,
   buildSafeExport,
   deleteTag,
   getAccountStore,
+  getAccountRecovery,
   getSettings,
   getSubredditVisits,
   getTags,
@@ -28,19 +29,26 @@ import type {
 } from '../../lib/types';
 import { parseResTagsText } from '../../lib/import/resTags';
 import {
-  buildRivetBackup,
-  parseRivetBackupText,
-} from '../../lib/import/rivetBackup';
+  buildLinchpinBackup,
+  parseLinchpinBackupText,
+} from '../../lib/import/linchpinBackup';
 import { ensureResSeedImported } from '../../lib/import/ensureSeed';
-import { formatNetVote, netVoteScore } from '../../lib/reddit/votes';
 import { maskSecret } from '../../lib/accounts/totp';
-import type { RivetMessage } from '../../lib/accounts/messages';
+import type { LinchpinMessage } from '../../lib/accounts/messages';
+import { renderTabActions } from './actions';
+import { renderProviderSettings } from './providerSettings';
+import {
+  renderAccountsSection,
+  renderTagForm,
+  renderTagList,
+} from './contentSections';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
 let tags: UserTagMap = {};
 let settings: Settings;
 let accounts: AccountStore = { accounts: [], activeAccountId: null };
+let recoveryAvailable = false;
 let search = '';
 let editing: string | null = null;
 let editingAccountId: string | null = null;
@@ -48,23 +56,18 @@ let statusMsg = '';
 let totpDisplay: { accountId: string; code: string; remaining: number } | null =
   null;
 let totpTimer: number | undefined;
-
-const COLORS = [
-  '',
-  'cornflowerblue',
-  '#e53935',
-  '#43a047',
-  '#fb8c00',
-  '#8e24aa',
-  '#546e7a',
-  '#000000',
-];
+let statusTimer: number | undefined;
+let renderGeneration = 0;
+type PopupView = 'tools' | 'reddit' | 'data';
+let activeView: PopupView = 'tools';
 
 function setStatus(msg: string): void {
+  if (statusTimer != null) window.clearTimeout(statusTimer);
   statusMsg = msg;
   render();
   if (msg) {
-    window.setTimeout(() => {
+    statusTimer = window.setTimeout(() => {
+      statusTimer = undefined;
       if (statusMsg === msg) {
         statusMsg = '';
         render();
@@ -73,21 +76,8 @@ function setStatus(msg: string): void {
   }
 }
 
-async function send<T>(msg: RivetMessage): Promise<T> {
+async function send<T>(msg: LinchpinMessage): Promise<T> {
   return browser.runtime.sendMessage(msg) as Promise<T>;
-}
-
-function filteredTags(): UserTag[] {
-  const q = search.trim().toLowerCase();
-  return Object.values(tags)
-    .filter((t) => {
-      if (!q) return true;
-      return (
-        t.username.includes(q) ||
-        (t.label ?? '').toLowerCase().includes(q)
-      );
-    })
-    .sort((a, b) => a.username.localeCompare(b.username));
 }
 
 async function reload(): Promise<void> {
@@ -95,226 +85,101 @@ async function reload(): Promise<void> {
   tags = await getTags();
   settings = await getSettings();
   accounts = await getAccountStore();
+  recoveryAvailable = Boolean(await getAccountRecovery());
   if (seed.status === 'imported') {
     statusMsg = `Imported ${seed.added} RES tags from Brave seed`;
   }
   render();
 }
 
-function settingsHtml(): string {
+function settingRow(options: {
+  id: string;
+  title: string;
+  description: string;
+  checked: boolean;
+}): string {
+  const { id, title, description, checked } = options;
+  return `
+    <label class="setting-row" for="${id}">
+      <span class="setting-copy">
+        <strong>${title}</strong>
+        <span>${description}</span>
+      </span>
+      <input class="switch-input" type="checkbox" id="${id}" ${checked ? 'checked' : ''} />
+    </label>
+  `;
+}
+
+function redditSettingsHtml(): string {
   return `
     <section class="panel">
-      <h2>Settings</h2>
-      <label class="row">
-        <input type="checkbox" id="enableTags" ${settings.enableTags ? 'checked' : ''} />
-        Show tags
-      </label>
-      <label class="row">
-        <input type="checkbox" id="enableIgnore" ${settings.enableIgnore ? 'checked' : ''} />
-        Hide ignored users
-      </label>
-      <label class="row">
-        <input type="checkbox" id="enableScroll" ${settings.enableOldRedditInfiniteScroll ? 'checked' : ''} />
-        Infinite scroll (old Reddit)
-      </label>
-      <label class="row">
-        <input type="checkbox" id="enableSubVisits" ${settings.enableSubredditLastVisited ? 'checked' : ''} />
-        Subreddit last-visited hints
-      </label>
-      <label class="row">
-        <input type="checkbox" id="enableNcc" ${settings.enableNewCommentCounts ? 'checked' : ''} />
-        New comment counts on threads
-      </label>
-      <label class="row">
-        Badge style
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">On Reddit</p>
+          <h2>Browsing features</h2>
+        </div>
+      </div>
+      <div class="setting-list">
+        ${settingRow({ id: 'enableTags', title: 'User tags', description: 'Show your labels beside Reddit usernames.', checked: settings.reddit.tags })}
+        ${settingRow({ id: 'enableIgnore', title: 'Hide ignored users', description: 'Remove posts and comments from ignored accounts.', checked: settings.reddit.ignore })}
+        ${settingRow({ id: 'enableAccountSwitcher', title: 'Account switcher', description: 'Switch saved sessions from Reddit’s account menu.', checked: settings.reddit.accountSwitcher })}
+        ${settingRow({ id: 'enableScroll', title: 'Infinite scroll', description: 'Load more posts automatically on old Reddit.', checked: settings.reddit.infiniteScroll })}
+        ${settingRow({ id: 'enableSubVisits', title: 'Visit hints', description: 'Show when you last opened a subreddit.', checked: settings.reddit.subredditVisits })}
+        ${settingRow({ id: 'enableNcc', title: 'New comment counts', description: 'Track new replies since your last thread visit.', checked: settings.reddit.newCommentCounts })}
+      </div>
+      <label class="select-row">
+        <span class="setting-copy"><strong>Tag appearance</strong><span>Choose how labels sit beside usernames.</span></span>
         <select id="badgeStyle">
-          <option value="pill" ${settings.tagBadgeStyle === 'pill' ? 'selected' : ''}>Pill</option>
-          <option value="text" ${settings.tagBadgeStyle === 'text' ? 'selected' : ''}>Text</option>
+          <option value="pill" ${settings.reddit.tagBadgeStyle === 'pill' ? 'selected' : ''}>Pill</option>
+          <option value="text" ${settings.reddit.tagBadgeStyle === 'text' ? 'selected' : ''}>Text</option>
         </select>
       </label>
     </section>
   `;
 }
 
-function accountFormHtml(account?: StoredAccount): string {
-  const isEdit = Boolean(account);
-  return `
-    <div class="account-form" id="account-form">
-      <h3>${isEdit ? 'Edit account' : 'Add account'}</h3>
-      <label class="field">
-        Label
-        <input id="a-label" type="text" placeholder="e.g. Main, Work alt" value="${escapeHtml(account?.label ?? '')}" />
-      </label>
-      <label class="field">
-        Reddit username (optional)
-        <input id="a-user" type="text" placeholder="username" value="${escapeHtml(account?.username ?? '')}" />
-      </label>
-      <label class="field">
-        TOTP secret (Base32, optional)
-        <input id="a-totp" type="password" autocomplete="off" placeholder="${
-          account?.totpSecret ? '•••• saved — paste to replace' : 'JBSW Y3DP EHPK 3PXP'
-        }" />
-      </label>
-      <p class="help warn">Secrets stay on-device in chrome.storage.local. Never share exports. Personal use only.</p>
-      <div class="actions">
-        <button type="button" id="save-account" class="primary">${isEdit ? 'Save' : 'Add'}</button>
-        ${isEdit ? '<button type="button" id="cancel-account">Cancel</button>' : ''}
-        ${
-          isEdit && account?.totpSecret
-            ? '<button type="button" id="clear-totp">Clear TOTP</button>'
-            : ''
-        }
-      </div>
-    </div>
-  `;
-}
-
-function accountsHtml(): string {
-  const list = accounts.accounts;
-  const editAcc = editingAccountId
-    ? list.find((a) => a.id === editingAccountId)
-    : undefined;
-
+function toolSettingsHtml(): string {
   return `
     <section class="panel">
-      <h2>Accounts</h2>
-      <p class="help">Also available on Reddit as a <strong>Rivet</strong> control next to the user menu (top right). Manage accounts here; switch there for speed.</p>
-      <ul class="account-list">
-        ${
-          list.length
-            ? list
-                .map((a) => {
-                  const pub = accountPublicSummary(a);
-                  const active = accounts.activeAccountId === a.id;
-                  const statusClass =
-                    pub.sessionStatus === 'expired'
-                      ? 'status-expired'
-                      : pub.sessionStatus === 'active'
-                        ? 'status-active'
-                        : '';
-                  const totpBlock =
-                    totpDisplay?.accountId === a.id
-                      ? `<div class="totp-row">
-                          <code class="totp-code">${escapeHtml(totpDisplay.code)}</code>
-                          <span class="muted">${totpDisplay.remaining}s</span>
-                          <button type="button" data-copy-totp="${escapeHtml(a.id)}">Copy</button>
-                        </div>`
-                      : '';
-                  return `
-                  <li class="${active ? 'active-account' : ''}">
-                    <div class="account-main">
-                      <strong>${escapeHtml(a.label)}</strong>
-                      ${a.username ? `<span class="muted">u/${escapeHtml(a.username)}</span>` : ''}
-                      <span class="pill ${statusClass}">${escapeHtml(pub.sessionStatus)}</span>
-                      ${active ? '<span class="pill status-active">active</span>' : ''}
-                      <span class="muted">${pub.hasCookies ? `${a.cookies.length} cookies` : 'no session'}${
-                        pub.hasTotp ? ' · TOTP' : ''
-                      }</span>
-                    </div>
-                    ${totpBlock}
-                    <div class="tag-actions account-actions">
-                      <button type="button" class="primary" data-switch="${escapeHtml(a.id)}">Switch</button>
-                      <button type="button" data-capture="${escapeHtml(a.id)}">Capture session</button>
-                      ${
-                        pub.hasTotp
-                          ? `<button type="button" data-totp="${escapeHtml(a.id)}">TOTP</button>`
-                          : ''
-                      }
-                      <button type="button" data-edit-acct="${escapeHtml(a.id)}">Edit</button>
-                      <button type="button" data-del-acct="${escapeHtml(a.id)}" class="danger">Remove</button>
-                    </div>
-                  </li>`;
-                })
-                .join('')
-            : '<li class="empty">No accounts yet — add one, log into Reddit, then Capture session.</li>'
-        }
-      </ul>
-      ${accountFormHtml(editAcc)}
-    </section>
-  `;
-}
-
-function formHtml(tag?: UserTag): string {
-  const isEdit = Boolean(tag);
-  return `
-    <section class="panel" id="tag-form">
-      <h2>${isEdit ? 'Edit tag' : 'Add tag'}</h2>
-      <label class="field">
-        Username
-        <input id="f-user" type="text" placeholder="username" value="${tag?.username ?? ''}" ${isEdit ? 'readonly' : ''} />
-      </label>
-      <label class="field">
-        Label
-        <input id="f-label" type="text" placeholder="e.g. bot, friend" value="${tag?.label ?? ''}" />
-      </label>
-      <label class="field">
-        Color
-        <select id="f-color">
-          ${COLORS.map(
-            (c) =>
-              `<option value="${c}" ${tag?.color === c ? 'selected' : ''}>${c || '(default)'}</option>`,
-          ).join('')}
-        </select>
-      </label>
-      <label class="field">
-        Custom color
-        <input id="f-color-custom" type="text" placeholder="#rrggbb or name" value="${
-          tag?.color && !COLORS.includes(tag.color) ? tag.color : ''
-        }" />
-      </label>
-      <label class="row">
-        <input id="f-ignore" type="checkbox" ${tag?.ignore ? 'checked' : ''} />
-        Ignore / hide
-      </label>
-      <div class="actions">
-        <button type="button" id="save-tag" class="primary">${isEdit ? 'Save' : 'Add'}</button>
-        ${isEdit ? '<button type="button" id="cancel-edit">Cancel</button>' : ''}
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Around the web</p>
+          <h2>Site tools</h2>
+        </div>
+      </div>
+      <div class="setting-list">
+        ${settingRow({ id: 'enableJson', title: 'JSON formatter', description: 'Turn raw JSON documents into a collapsible tree.', checked: settings.jsonFormatter.enabled })}
+        ${settingRow({ id: 'enableMaps', title: 'Google Maps link', description: 'Restore Maps in Google search navigation.', checked: settings.google.mapsButton })}
+        ${settingRow({ id: 'enableViewImage', title: 'Google View Image', description: 'Add direct image links to search previews.', checked: settings.google.viewImage })}
+        ${settingRow({ id: 'enableShorts', title: 'Remove YouTube Shorts', description: 'Hide Shorts shelves and navigation entries.', checked: settings.youtube.removeShorts })}
       </div>
     </section>
-  `;
-}
-
-function listHtml(): string {
-  const list = filteredTags();
-  return `
     <section class="panel">
-      <div class="list-header">
-        <h2>Tags <span class="muted">(${list.length})</span></h2>
-        <input id="search" type="search" placeholder="Search…" value="${search.replace(/"/g, '&quot;')}" />
+      <p class="eyebrow">JSON formatter</p>
+      <h2>Display options</h2>
+      <div class="setting-list json-setting-list">
+        ${settingRow({ id: 'jsonArrayIndices', title: 'Array index keys', description: 'Prefix array elements with 0, 1, 2, and so on.', checked: settings.jsonFormatter.showArrayIndices })}
+        <label class="setting-row control-row" for="jsonItemCountMode">
+          <span class="setting-copy"><strong>Item counts</strong><span>Hide counts, always show them, or show only for large collections.</span></span>
+          <select id="jsonItemCountMode" class="compact-control">
+            <option value="hide" ${settings.jsonFormatter.itemCountMode === 'hide' ? 'selected' : ''}>Hide</option>
+            <option value="show" ${settings.jsonFormatter.itemCountMode === 'show' ? 'selected' : ''}>Always show</option>
+            <option value="threshold" ${settings.jsonFormatter.itemCountMode === 'threshold' ? 'selected' : ''}>Only above…</option>
+          </select>
+        </label>
+        <label class="setting-row control-row" for="jsonItemCountThreshold">
+          <span class="setting-copy"><strong>Count threshold</strong><span>Show counts when a collection has more than this many elements.</span></span>
+          <input id="jsonItemCountThreshold" class="compact-control count-threshold" type="number" min="1" max="100000" step="1" value="${settings.jsonFormatter.itemCountThreshold}" ${settings.jsonFormatter.itemCountMode === 'threshold' ? '' : 'disabled'} />
+        </label>
+        <label class="setting-row control-row" for="jsonTheme">
+          <span class="setting-copy"><strong>Theme</strong><span>Choose the formatter’s color scheme.</span></span>
+          <select id="jsonTheme" class="compact-control">
+            <option value="system" ${settings.jsonFormatter.darkMode === 'system' ? 'selected' : ''}>System</option>
+            <option value="light" ${settings.jsonFormatter.darkMode === 'light' ? 'selected' : ''}>Light</option>
+            <option value="dark" ${settings.jsonFormatter.darkMode === 'dark' ? 'selected' : ''}>Dark</option>
+          </select>
+        </label>
       </div>
-      <ul class="tag-list">
-        ${
-          list.length
-            ? list
-                .map((t) => {
-                  const swatch = t.color
-                    ? `<span class="swatch" style="background:${t.color}"></span>`
-                    : '';
-                  const score = netVoteScore(t);
-                  const bits = [
-                    t.label ? escapeHtml(t.label) : '',
-                    t.ignore ? 'ignore' : '',
-                    !t.label && score != null ? escapeHtml(formatNetVote(score)) : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' · ');
-                  return `
-                  <li>
-                    <div class="tag-main">
-                      ${swatch}
-                      <strong>u/${escapeHtml(t.username)}</strong>
-                      <span class="muted">${bits}</span>
-                    </div>
-                    <div class="tag-actions">
-                      <button type="button" data-edit="${escapeHtml(t.username)}">Edit</button>
-                      <button type="button" data-del="${escapeHtml(t.username)}" class="danger">Delete</button>
-                    </div>
-                  </li>`;
-                })
-                .join('')
-            : '<li class="empty">No tags yet.</li>'
-        }
-      </ul>
     </section>
   `;
 }
@@ -322,42 +187,93 @@ function listHtml(): string {
 function importHtml(): string {
   return `
     <section class="panel">
-      <h2>Import / export</h2>
-      <p class="help">Paste Rivet backup JSON (settings + tags + visit maps) or a RES tag export. Merges tags/visits; replaces settings when present. <strong>Never includes account cookies or TOTP secrets.</strong></p>
+      <p class="eyebrow">Portable and private</p>
+      <h2>Import or export</h2>
+      <p class="help">Paste a Linchpin backup or a RES tag export. Merges tags/visits; replaces settings when present. <strong>Never includes account cookies or TOTP secrets.</strong></p>
       <textarea id="import-json" rows="4" placeholder='{"settings":{…},"tags":{"username":{"text":"bot"}}}'></textarea>
       <div class="actions">
         <button type="button" id="import-btn" class="primary">Import</button>
         <button type="button" id="import-seed">Load seed tags</button>
-        <button type="button" id="export-btn">Export Rivet JSON</button>
+        <button type="button" id="export-btn">Export Linchpin JSON</button>
         <button type="button" id="export-tags-btn">Export tags only</button>
       </div>
     </section>
   `;
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+function isSafeColor(value: string): boolean {
+  return value.length <= 80 && !/[<>"'`;{}]/.test(value) && CSS.supports('color', value);
 }
 
 function render(): void {
+  const generation = ++renderGeneration;
   const editTag = editing ? tags[editing] : undefined;
   app.innerHTML = `
-    <header>
-      <h1>Rivet</h1>
-      <p class="subtitle">Reddit tags, accounts &amp; QoL</p>
+    <header class="app-header">
+      <div class="brand-row">
+        <img class="brand-icon" src="/icon/48.png" width="34" height="34" alt="" />
+        <div>
+          <p class="eyebrow">Browser toolkit</p>
+          <h1>Linchpin</h1>
+        </div>
+      </div>
+      <nav class="app-nav" role="tablist" aria-label="Linchpin sections">
+        <button type="button" role="tab" data-view="tools" aria-controls="view-tools">Tools</button>
+        <button type="button" role="tab" data-view="reddit" aria-controls="view-reddit">Reddit</button>
+        <button type="button" role="tab" data-view="data" aria-controls="view-data">Data</button>
+      </nav>
     </header>
-    ${statusMsg ? `<div class="status">${escapeHtml(statusMsg)}</div>` : ''}
-    ${accountsHtml()}
-    ${settingsHtml()}
-    ${formHtml(editTag)}
-    ${listHtml()}
-    ${importHtml()}
+    <div id="status-slot" class="status-slot" aria-live="polite"></div>
+    <main class="app-content">
+      <section class="view-panel" id="view-tools" role="tabpanel" data-panel="tools">
+        <div id="tab-actions-slot"></div>
+        ${toolSettingsHtml()}
+        <div id="provider-settings-slot"></div>
+      </section>
+      <section class="view-panel" id="view-reddit" role="tabpanel" data-panel="reddit">
+        ${redditSettingsHtml()}
+        <div id="accounts-slot"></div>
+        <div id="tag-form-slot"></div>
+        <div id="tag-list-slot"></div>
+      </section>
+      <section class="view-panel" id="view-data" role="tabpanel" data-panel="data">
+        ${importHtml()}
+      </section>
+    </main>
   `;
+  if (statusMsg) {
+    const status = document.createElement('div');
+    status.className = 'status';
+    status.textContent = statusMsg;
+    document.querySelector('#status-slot')?.replaceChildren(status);
+  }
+  document.querySelector('#tab-actions-slot')?.replaceChildren(
+    renderTabActions(setStatus, settings.summarizer.enabled),
+  );
+  document.querySelector('#accounts-slot')?.replaceChildren(
+    renderAccountsSection(accounts, editingAccountId, totpDisplay, recoveryAvailable),
+  );
+  document.querySelector('#tag-form-slot')?.replaceChildren(renderTagForm(editTag));
+  document.querySelector('#tag-list-slot')?.replaceChildren(renderTagList(tags, search));
+  void renderProviderSettings(setStatus, (next) => {
+    settings = next;
+  }).then((section) => {
+    if (generation !== renderGeneration) return;
+    document.querySelector('#provider-settings-slot')?.replaceChildren(section);
+  });
+  syncActiveView();
   bind();
+}
+
+function syncActiveView(): void {
+  app.querySelectorAll<HTMLElement>('[data-panel]').forEach((panel) => {
+    panel.hidden = panel.dataset.panel !== activeView;
+  });
+  app.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((button) => {
+    const selected = button.dataset.view === activeView;
+    button.setAttribute('aria-selected', String(selected));
+    button.tabIndex = selected ? 0 : -1;
+  });
 }
 
 function readForm(): Omit<UserTag, 'updatedAt'> {
@@ -369,14 +285,16 @@ function readForm(): Omit<UserTag, 'updatedAt'> {
     undefined;
   const colorSelect =
     document.querySelector<HTMLSelectElement>('#f-color')?.value || '';
-  const colorCustom =
-    document.querySelector<HTMLInputElement>('#f-color-custom')?.value.trim() ||
-    '';
-  const color = colorCustom || colorSelect || undefined;
+  const color = colorSelect || undefined;
   const ignore =
     document.querySelector<HTMLInputElement>('#f-ignore')?.checked ?? false;
 
-  return { username: user, label, color, ignore: ignore || undefined };
+  return {
+    username: user,
+    label: label?.slice(0, 200),
+    color: color && isSafeColor(color) ? color : undefined,
+    ignore: ignore || undefined,
+  };
 }
 
 function stopTotpTimer(): void {
@@ -392,7 +310,7 @@ async function refreshTotp(accountId: string): Promise<void> {
     code?: string;
     remaining?: number;
     error?: string;
-  }>({ type: 'rivet:totp', accountId });
+  }>({ type: 'linchpin:totp', accountId });
 
   if (!result.ok || !result.code) {
     totpDisplay = null;
@@ -411,59 +329,126 @@ function startTotpPolling(accountId: string): void {
   stopTotpTimer();
   void refreshTotp(accountId);
   totpTimer = window.setInterval(() => {
-    void refreshTotp(accountId);
+    if (!totpDisplay || totpDisplay.accountId !== accountId || totpDisplay.remaining <= 1) {
+      void refreshTotp(accountId);
+      return;
+    }
+    totpDisplay = { ...totpDisplay, remaining: totpDisplay.remaining - 1 };
+    const countdown = document.querySelector<HTMLElement>(
+      `[data-totp-countdown="${CSS.escape(accountId)}"]`,
+    );
+    if (countdown) countdown.textContent = `${totpDisplay.remaining}s`;
   }, 1000);
 }
 
+function onSearchInput(event: Event): void {
+  const target = event.target as HTMLInputElement;
+  search = target.value;
+  const pos = target.selectionStart;
+  document.querySelector('#tag-list-slot')?.replaceChildren(renderTagList(tags, search));
+  const input = document.querySelector<HTMLInputElement>('#search');
+  input?.addEventListener('input', onSearchInput);
+  if (input && pos != null) {
+    input.focus();
+    input.setSelectionRange(pos, pos);
+  }
+}
+
 function bind(): void {
+  const viewButtons = [...app.querySelectorAll<HTMLButtonElement>('[data-view]')];
+  viewButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const view = button.dataset.view;
+      if (view !== 'tools' && view !== 'reddit' && view !== 'data') return;
+      activeView = view;
+      syncActiveView();
+    });
+  });
+  app.querySelector('.app-nav')?.addEventListener('keydown', (event) => {
+    if (!(event instanceof KeyboardEvent) || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
+    const current = viewButtons.findIndex((button) => button.dataset.view === activeView);
+    const offset = event.key === 'ArrowRight' ? 1 : -1;
+    const next = viewButtons[(current + offset + viewButtons.length) % viewButtons.length];
+    const view = next?.dataset.view;
+    if (!next || (view !== 'tools' && view !== 'reddit' && view !== 'data')) return;
+    event.preventDefault();
+    activeView = view;
+    syncActiveView();
+    next.focus();
+  });
   document.querySelector('#enableTags')?.addEventListener('change', async (e) => {
     settings = await updateSettings({
-      enableTags: (e.target as HTMLInputElement).checked,
+      reddit: { tags: (e.target as HTMLInputElement).checked },
     });
     setStatus('Settings saved');
   });
   document.querySelector('#enableIgnore')?.addEventListener('change', async (e) => {
     settings = await updateSettings({
-      enableIgnore: (e.target as HTMLInputElement).checked,
+      reddit: { ignore: (e.target as HTMLInputElement).checked },
     });
     setStatus('Settings saved');
   });
   document.querySelector('#enableScroll')?.addEventListener('change', async (e) => {
     settings = await updateSettings({
-      enableOldRedditInfiniteScroll: (e.target as HTMLInputElement).checked,
+      reddit: { infiniteScroll: (e.target as HTMLInputElement).checked },
     });
     setStatus('Settings saved');
   });
   document.querySelector('#enableSubVisits')?.addEventListener('change', async (e) => {
     settings = await updateSettings({
-      enableSubredditLastVisited: (e.target as HTMLInputElement).checked,
+      reddit: { subredditVisits: (e.target as HTMLInputElement).checked },
     });
     setStatus('Settings saved');
   });
   document.querySelector('#enableNcc')?.addEventListener('change', async (e) => {
     settings = await updateSettings({
-      enableNewCommentCounts: (e.target as HTMLInputElement).checked,
+      reddit: { newCommentCounts: (e.target as HTMLInputElement).checked },
     });
     setStatus('Settings saved');
   });
   document.querySelector('#badgeStyle')?.addEventListener('change', async (e) => {
     settings = await updateSettings({
-      tagBadgeStyle: (e.target as HTMLSelectElement)
-        .value as Settings['tagBadgeStyle'],
+      reddit: {
+        tagBadgeStyle: (e.target as HTMLSelectElement)
+          .value as Settings['reddit']['tagBadgeStyle'],
+      },
     });
     setStatus('Settings saved');
   });
-
-  document.querySelector('#search')?.addEventListener('input', (e) => {
-    search = (e.target as HTMLInputElement).value;
-    const pos = (e.target as HTMLInputElement).selectionStart;
-    render();
-    const input = document.querySelector<HTMLInputElement>('#search');
-    if (input && pos != null) {
-      input.focus();
-      input.setSelectionRange(pos, pos);
-    }
+  const checkboxSettings: Array<[string, (checked: boolean) => Parameters<typeof updateSettings>[0]]> = [
+    ['#enableAccountSwitcher', (checked) => ({ reddit: { accountSwitcher: checked } })],
+    ['#enableJson', (checked) => ({ jsonFormatter: { enabled: checked } })],
+    ['#jsonArrayIndices', (checked) => ({ jsonFormatter: { showArrayIndices: checked } })],
+    ['#enableMaps', (checked) => ({ google: { mapsButton: checked } })],
+    ['#enableViewImage', (checked) => ({ google: { viewImage: checked } })],
+    ['#enableShorts', (checked) => ({ youtube: { removeShorts: checked } })],
+  ];
+  for (const [selector, patch] of checkboxSettings) {
+    document.querySelector(selector)?.addEventListener('change', async (event) => {
+      settings = await updateSettings(patch((event.target as HTMLInputElement).checked));
+      setStatus('Settings saved');
+    });
+  }
+  document.querySelector('#jsonTheme')?.addEventListener('change', async (event) => {
+    const value = (event.target as HTMLSelectElement).value;
+    if (value !== 'system' && value !== 'light' && value !== 'dark') return;
+    settings = await updateSettings({ jsonFormatter: { darkMode: value } });
+    setStatus('Settings saved');
   });
+  document.querySelector('#jsonItemCountMode')?.addEventListener('change', async (event) => {
+    const value = (event.target as HTMLSelectElement).value;
+    if (value !== 'hide' && value !== 'show' && value !== 'threshold') return;
+    settings = await updateSettings({ jsonFormatter: { itemCountMode: value } });
+    setStatus('Settings saved');
+  });
+  document.querySelector('#jsonItemCountThreshold')?.addEventListener('change', async (event) => {
+    const input = event.target as HTMLInputElement;
+    const value = Math.max(1, Math.min(100_000, Math.trunc(input.valueAsNumber || 15)));
+    settings = await updateSettings({ jsonFormatter: { itemCountThreshold: value } });
+    setStatus('Settings saved');
+  });
+
+  document.querySelector('#search')?.addEventListener('input', onSearchInput);
 
   document.querySelector('#save-tag')?.addEventListener('click', async () => {
     const data = readForm();
@@ -501,6 +486,15 @@ function bind(): void {
   });
 
   // Accounts
+  document.querySelector('#restore-account-session')?.addEventListener('click', async () => {
+    const result = await send<{ ok: boolean; message: string }>({
+      type: 'linchpin:restore-account-session',
+    });
+    accounts = await getAccountStore();
+    recoveryAvailable = Boolean(await getAccountRecovery());
+    setStatus(result.message);
+  });
+
   document.querySelector('#save-account')?.addEventListener('click', async () => {
     const label =
       document.querySelector<HTMLInputElement>('#a-label')?.value.trim() || '';
@@ -587,7 +581,7 @@ function bind(): void {
         cookieCount: number;
         sessionLooksValid: boolean;
         message: string;
-      }>({ type: 'rivet:capture-session', accountId: id });
+      }>({ type: 'linchpin:capture-session', accountId: id });
       accounts = await getAccountStore();
       setStatus(result.message);
     });
@@ -600,7 +594,7 @@ function bind(): void {
         ok: boolean;
         needsRelogin: boolean;
         message: string;
-      }>({ type: 'rivet:switch-account', accountId: id });
+      }>({ type: 'linchpin:switch-account', accountId: id });
       accounts = await getAccountStore();
       if (result.needsRelogin) {
         const acc = accounts.accounts.find((a) => a.id === id);
@@ -633,7 +627,7 @@ function bind(): void {
     const text =
       document.querySelector<HTMLTextAreaElement>('#import-json')?.value || '';
     try {
-      const parsed = parseRivetBackupText(text);
+      const parsed = parseLinchpinBackupText(text);
       const parts: string[] = [];
 
       if (parsed.settings) {
@@ -688,7 +682,7 @@ function bind(): void {
   });
 
   document.querySelector('#export-btn')?.addEventListener('click', async () => {
-    const payload = buildRivetBackup({
+    const payload = buildLinchpinBackup({
       tags: await getTags(),
       settings: await getSettings(),
       subredditVisits: await getSubredditVisits(),
@@ -699,10 +693,10 @@ function bind(): void {
     });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `rivet-backup-${Date.now()}.json`;
+    a.download = `linchpin-backup-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
-    setStatus('Rivet backup downloaded (no account secrets)');
+    setStatus('Linchpin backup downloaded (no account secrets)');
   });
 
   document.querySelector('#export-tags-btn')?.addEventListener('click', () => {
@@ -712,11 +706,15 @@ function bind(): void {
     });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `rivet-tags-${Date.now()}.json`;
+    a.download = `linchpin-tags-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
     setStatus('Tag export downloaded (no account secrets)');
   });
 }
 
+window.addEventListener('pagehide', () => {
+  stopTotpTimer();
+  if (statusTimer != null) window.clearTimeout(statusTimer);
+}, { once: true });
 void reload();

@@ -9,7 +9,13 @@ type ScrollState = {
   seen: Set<string>;
   indicator: HTMLElement | null;
   observer: IntersectionObserver | null;
+  fetchedPages: number;
+  appendedPosts: number;
+  abort: AbortController | null;
 };
+
+const MAX_FETCHED_PAGES = 20;
+const MAX_APPENDED_POSTS = 500;
 
 const state: ScrollState = {
   nextUrl: null,
@@ -19,6 +25,9 @@ const state: ScrollState = {
   seen: new Set(),
   indicator: null,
   observer: null,
+  fetchedPages: 0,
+  appendedPosts: 0,
+  abort: null,
 };
 
 function siteTable(): HTMLElement | null {
@@ -56,7 +65,7 @@ function sentinelStillNear(): boolean {
 function ensureIndicator(): HTMLElement {
   if (state.indicator) return state.indicator;
   const el = document.createElement('div');
-  el.id = 'rivet-ner-indicator';
+  el.id = 'linchpin-ner-indicator';
   el.style.cssText =
     'padding:10px;text-align:center;font:12px/1.4 system-ui,sans-serif;color:#666;';
   el.textContent = '';
@@ -68,6 +77,22 @@ function ensureIndicator(): HTMLElement {
 
 function setStatus(text: string): void {
   ensureIndicator().textContent = text;
+}
+
+function showContinueLink(): void {
+  state.stopped = true;
+  state.observer?.disconnect();
+  const indicator = ensureIndicator();
+  indicator.replaceChildren();
+  if (!state.nextUrl) {
+    indicator.textContent = 'End of listing.';
+    return;
+  }
+  const link = document.createElement('a');
+  link.href = state.nextUrl;
+  link.textContent = 'Continue on the next Reddit page';
+  link.rel = 'next';
+  indicator.appendChild(link);
 }
 
 function seedSeen(): void {
@@ -85,16 +110,27 @@ async function loadNextPage(
 ): Promise<void> {
   if (state.loading || state.stopped || !state.nextUrl) return;
   if (generation !== state.generation) return;
+  if (
+    state.fetchedPages >= MAX_FETCHED_PAGES ||
+    state.appendedPosts >= MAX_APPENDED_POSTS
+  ) {
+    showContinueLink();
+    return;
+  }
   state.loading = true;
   setStatus('Loading more…');
+  const abort = new AbortController();
+  state.abort = abort;
 
   try {
     const res = await fetch(state.nextUrl, {
       credentials: 'include',
       headers: { Accept: 'text/html' },
+      signal: abort.signal,
     });
     if (generation !== state.generation) return;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    state.fetchedPages++;
     const html = await res.text();
     if (generation !== state.generation) return;
     const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -111,19 +147,21 @@ async function loadNextPage(
     if (!table) return;
 
     const appended: Element[] = [];
-    remoteTable.querySelectorAll('.thing').forEach((thing) => {
+    for (const thing of remoteTable.querySelectorAll('.thing')) {
+      if (state.appendedPosts >= MAX_APPENDED_POSTS) break;
       const id = thingId(thing);
-      if (id && state.seen.has(id)) return;
+      if (id && state.seen.has(id)) continue;
       if (id) state.seen.add(id);
       // Skip clearleft / nav widgets that aren't posts
-      if (thing.classList.contains('clearleft')) return;
+      if (thing.classList.contains('clearleft')) continue;
       const clone = document.importNode(thing, true);
       // Insert before nav buttons if present at end of siteTable
       const nav = table.querySelector('.nav-buttons');
       if (nav) table.insertBefore(clone, nav);
       else table.appendChild(clone);
       appended.push(clone);
-    });
+      state.appendedPosts++;
+    }
 
     // Update next URL from fetched page; remove duplicate nav from appended flow
     state.nextUrl = findNextUrl(doc);
@@ -134,19 +172,27 @@ async function loadNextPage(
     }
 
     if (appended.length) onAppended(appended);
+    appended.length = 0;
 
     if (!state.nextUrl) {
       state.stopped = true;
       setStatus('End of listing.');
+    } else if (
+      state.fetchedPages >= MAX_FETCHED_PAGES ||
+      state.appendedPosts >= MAX_APPENDED_POSTS
+    ) {
+      showContinueLink();
     } else {
       setStatus('');
     }
   } catch (err) {
     if (generation !== state.generation) return;
-    console.warn('[rivet] infinite scroll failed', err);
+    if (abort.signal.aborted) return;
+    console.warn('[linchpin] infinite scroll failed', err);
     setStatus('Failed to load more. Scroll again to retry.');
   } finally {
     if (generation !== state.generation) return;
+    if (state.abort === abort) state.abort = null;
     state.loading = false;
     // IntersectionObserver may not re-fire if the sentinel never left the
     // viewport after a short page — chain another load while still near.
@@ -181,6 +227,10 @@ export function startOldRedditInfiniteScroll(
   state.indicator = null;
   state.loading = false;
   state.stopped = false;
+  state.abort?.abort();
+  state.abort = null;
+  state.fetchedPages = 0;
+  state.appendedPosts = 0;
   state.generation += 1;
   const generation = state.generation;
   state.seen.clear();
@@ -211,6 +261,10 @@ export function startOldRedditInfiniteScroll(
     state.indicator = null;
     state.loading = false;
     state.stopped = false;
+    state.abort?.abort();
+    state.abort = null;
+    state.fetchedPages = 0;
+    state.appendedPosts = 0;
     state.seen.clear();
     state.nextUrl = null;
   };

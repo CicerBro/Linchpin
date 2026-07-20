@@ -1,5 +1,6 @@
 import type { UserTag, UserTagMap } from '../types';
 import { normalizeUsername } from '../storage';
+import { sanitizeUserTag } from '../storage/repositories';
 
 /** Raw RES `tag.<username>` value shape */
 export type ResTagValue = {
@@ -18,12 +19,19 @@ export type ResExportFile = {
   tags: Record<string, ResTagValue> | UserTagMap;
 };
 
-function isUserTagMap(value: unknown): value is UserTagMap {
-  if (!value || typeof value !== 'object') return false;
-  const entries = Object.values(value as Record<string, unknown>);
-  if (!entries.length) return true;
-  const sample = entries[0] as Record<string, unknown>;
-  return typeof sample?.username === 'string' && typeof sample?.updatedAt === 'number';
+function plainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function optionalPrimitive(
+  value: Record<string, unknown>,
+  key: string,
+  kind: 'string' | 'boolean' | 'number',
+  username: string,
+): void {
+  if (value[key] != null && typeof value[key] !== kind) {
+    throw new Error(`Invalid ${key} for u/${username}`);
+  }
 }
 
 export function resValueToUserTag(
@@ -32,28 +40,31 @@ export function resValueToUserTag(
   updatedAt = Date.now(),
 ): UserTag {
   const name = normalizeUsername(username);
+  optionalPrimitive(value, 'text', 'string', name);
+  optionalPrimitive(value, 'color', 'string', name);
+  optionalPrimitive(value, 'ignore', 'boolean', name);
+  optionalPrimitive(value, 'link', 'string', name);
+  optionalPrimitive(value, 'votesUp', 'number', name);
+  optionalPrimitive(value, 'votesDown', 'number', name);
   const label = typeof value.text === 'string' ? value.text : undefined;
   const ignore =
     value.ignore === true ||
     (typeof label === 'string' && label.trim().toLowerCase() === 'ignore');
 
-  const tag: UserTag = {
+  return sanitizeUserTag({
     username: name,
     updatedAt,
-  };
-
-  if (label) tag.label = label;
-  if (typeof value.color === 'string' && value.color) tag.color = value.color;
-  if (ignore) tag.ignore = true;
-  if (typeof value.link === 'string' && value.link) tag.link = value.link;
-  if (typeof value.votesUp === 'number') tag.votesUp = value.votesUp;
-  if (typeof value.votesDown === 'number') tag.votesDown = value.votesDown;
-
-  return tag;
+    label,
+    color: typeof value.color === 'string' && value.color ? value.color : undefined,
+    ignore,
+    link: typeof value.link === 'string' && value.link ? value.link : undefined,
+    votesUp: value.votesUp,
+    votesDown: value.votesDown,
+  });
 }
 
 /**
- * Parse RES export JSON (or Rivet export) into a UserTagMap.
+ * Parse RES export JSON (or a Linchpin export) into a UserTagMap.
  * Accepts:
  * - `{ tags: { "user": { text, color, ... } } }`
  * - `{ tags: { "user": UserTag } }`
@@ -73,29 +84,36 @@ export function parseResTagsJson(raw: unknown): UserTagMap {
     source = root;
   }
 
-  if (isUserTagMap(source)) {
-    const out: UserTagMap = {};
-    for (const [k, tag] of Object.entries(source)) {
-      const name = normalizeUsername(tag.username || k);
-      out[name] = { ...tag, username: name };
-    }
-    return out;
-  }
-
   const out: UserTagMap = {};
   const now = Date.now();
 
+  if (Object.keys(source).length > 100_000) {
+    throw new Error('Tag import is too large');
+  }
+
   for (const [key, value] of Object.entries(source)) {
-    if (!value || typeof value !== 'object') continue;
     let username = key;
     if (username.startsWith('tag.')) username = username.slice(4);
     // Skip RES option keys accidentally included
     if (username.startsWith('RES') || username.includes('.')) continue;
-    out[normalizeUsername(username)] = resValueToUserTag(
-      username,
-      value as ResTagValue,
-      now,
-    );
+    if (!plainObject(value)) throw new Error(`Invalid tag entry for u/${username}`);
+
+    const isLinchpinTag = 'username' in value || 'updatedAt' in value;
+    if (isLinchpinTag) {
+      optionalPrimitive(value, 'username', 'string', username);
+      optionalPrimitive(value, 'updatedAt', 'number', username);
+      optionalPrimitive(value, 'label', 'string', username);
+      optionalPrimitive(value, 'color', 'string', username);
+      optionalPrimitive(value, 'ignore', 'boolean', username);
+      optionalPrimitive(value, 'link', 'string', username);
+      optionalPrimitive(value, 'votesUp', 'number', username);
+      optionalPrimitive(value, 'votesDown', 'number', username);
+      const tag = sanitizeUserTag(value as Partial<UserTag>, username);
+      out[tag.username] = tag;
+    } else {
+      const tag = resValueToUserTag(username, value as ResTagValue, now);
+      out[tag.username] = tag;
+    }
   }
 
   return out;
