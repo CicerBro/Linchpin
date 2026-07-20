@@ -73,7 +73,7 @@ Extraction injects Mozilla Readability only after the user requests a summary an
 
 Linchpin follows RES's account-switching model: it logs out through Reddit, submits the saved username and password to Reddit's login endpoint, and reloads open Reddit tabs after verifying the new account. When a Base32 TOTP secret is saved, Linchpin generates and submits the current one-time code automatically. Account switches are serialized so popup and in-page controls cannot interleave login requests.
 
-These values are sensitive. Do not commit passwords or TOTP secrets. Existing cookie-based accounts must be edited once to add their password.
+These values are sensitive. Do not commit passwords or TOTP secrets.
 
 ## Import and export
 
