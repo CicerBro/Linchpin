@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "wxt": {
+      "source": "46ki75/claude-plugins",
+      "sourceType": "github",
+      "skillPath": "plugins/wxt/skills/wxt/SKILL.md",
+      "computedHash": "0ad64e532bcc809e573fe979ebc5c2e4af60af2cccc4b4ffb2c1aff0bfef14ee"
+    }
+  }
+}

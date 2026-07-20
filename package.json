@@ -13,9 +13,11 @@
     "zip:firefox": "wxt zip -b firefox --mv3",
     "compile": "tsc --noEmit",
     "export:res-tags": "node scripts/export-res-tags.mjs",
-    "postinstall": "wxt prepare",
+    "postinstall": "wxt prepare && (npm run skills:update || true)",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "skills:install": "npx skills add 46ki75/claude-plugins -s wxt -a cursor -a codex -y",
+    "skills:update": "npx skills update wxt -p -y || npm run skills:install"
   },
   "devDependencies": {
     "classic-level": "^3.0.0",
