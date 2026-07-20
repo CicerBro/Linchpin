@@ -187,7 +187,7 @@ export async function renderProviderSettings(
   const warning = document.createElement('p');
   warning.className = 'help warn';
   warning.textContent =
-    'API keys stay in extension local storage, which is not strongly encrypted. Linchpin exports never include API keys, account cookies, or TOTP secrets.';
+    'API keys stay in extension local storage, which is not strongly encrypted. Linchpin exports never include API keys, account passwords, or TOTP secrets.';
   const save = document.createElement('button');
   save.type = 'button';
   save.textContent = config.apiKeys[config.provider]

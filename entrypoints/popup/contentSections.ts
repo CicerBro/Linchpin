@@ -41,7 +41,7 @@ function accountForm(account?: StoredAccount): HTMLElement {
   const label = node('input');
   label.id = 'a-label';
   label.type = 'text';
-  label.placeholder = 'e.g. Main, Work alt';
+  label.placeholder = 'Optional — defaults to username';
   label.maxLength = 200;
   label.value = account?.label ?? '';
   const username = node('input');
@@ -50,6 +50,12 @@ function accountForm(account?: StoredAccount): HTMLElement {
   username.placeholder = 'username';
   username.maxLength = 64;
   username.value = account?.username ?? '';
+  const password = node('input');
+  password.id = 'a-password';
+  password.type = 'password';
+  password.autocomplete = 'off';
+  password.maxLength = 256;
+  password.placeholder = account?.password ? '•••• saved — type to replace' : 'Reddit password';
   const totp = node('input');
   totp.id = 'a-totp';
   totp.type = 'password';
@@ -73,10 +79,16 @@ function accountForm(account?: StoredAccount): HTMLElement {
       clear.id = 'clear-totp';
       actions.append(clear);
     }
+    if (account.password) {
+      const clear = button('Clear password');
+      clear.id = 'clear-password';
+      actions.append(clear);
+    }
   }
   form.append(
-    field('Label', label),
-    field('Reddit username (optional)', username),
+    field('Label (optional)', label),
+    field('Reddit username', username),
+    field('Reddit password', password),
     field('TOTP secret (Base32, optional)', totp),
     warning,
     actions,
@@ -88,15 +100,14 @@ export function renderAccountsSection(
   store: AccountStore,
   editingAccountId: string | null,
   totpDisplay: { accountId: string; code: string; remaining: number } | null,
-  recoveryAvailable = false,
 ): HTMLElement {
   const section = node('section', { className: 'panel' });
   section.append(
-    node('p', { className: 'eyebrow', text: 'Sessions' }),
+    node('p', { className: 'eyebrow', text: 'Logins' }),
     node('h2', { text: 'Accounts' }),
     node('p', {
       className: 'help',
-      text: 'Manage saved Reddit sessions here; switch quickly from Linchpin next to Reddit’s user menu.',
+      text: 'Linchpin uses Reddit’s normal logout/login flow, like RES. A saved TOTP secret is used automatically.',
     }),
   );
   const list = node('ul', { className: 'account-list' });
@@ -104,7 +115,7 @@ export function renderAccountsSection(
     list.append(
       node('li', {
         className: 'empty',
-        text: 'No accounts yet — add one, log into Reddit, then capture the session.',
+        text: 'No accounts yet — add a Reddit username and password.',
       }),
     );
   for (const account of store.accounts) {
@@ -116,17 +127,24 @@ export function renderAccountsSection(
     if (account.username)
       main.append(node('span', { className: 'muted', text: `u/${account.username}` }));
     const sessionClass =
-      summary.sessionStatus === 'expired'
+      !summary.hasPassword || summary.sessionStatus === 'expired'
         ? 'status-expired'
         : summary.sessionStatus === 'active'
           ? 'status-active'
           : '';
-    main.append(node('span', { className: `pill ${sessionClass}`, text: summary.sessionStatus }));
+    const loginStatus = !summary.hasPassword
+      ? 'needs password'
+      : summary.sessionStatus === 'active'
+        ? 'active'
+        : summary.sessionStatus === 'expired'
+          ? 'login failed'
+          : 'ready';
+    main.append(node('span', { className: `pill ${sessionClass}`, text: loginStatus }));
     if (active) main.append(node('span', { className: 'pill status-active', text: 'active' }));
     main.append(
       node('span', {
         className: 'muted',
-        text: `${summary.hasCookies ? `${account.cookies.length} cookies` : 'no session'}${summary.hasTotp ? ' · TOTP' : ''}`,
+        text: `${summary.hasPassword ? 'password saved' : 'no password'}${summary.hasTotp ? ' · automatic TOTP' : ''}`,
       }),
     );
     item.append(main);
@@ -142,10 +160,7 @@ export function renderAccountsSection(
       item.append(row);
     }
     const actions = node('div', { className: 'tag-actions account-actions' });
-    actions.append(
-      button('Switch', ['switch', account.id], 'primary'),
-      button('Capture session', ['capture', account.id]),
-    );
+    actions.append(button('Switch', ['switch', account.id], 'primary'));
     if (summary.hasTotp) actions.append(button('TOTP', ['totp', account.id]));
     actions.append(
       button('Edit', ['editAcct', account.id]),
@@ -155,17 +170,6 @@ export function renderAccountsSection(
     list.append(item);
   }
   section.append(list);
-  if (recoveryAvailable) {
-    const recovery = node('div', { className: 'recovery-box' });
-    const text = node('p', {
-      className: 'help warn',
-      text: 'A prior Reddit session is available after an incomplete account switch.',
-    });
-    const restore = button('Restore prior session');
-    restore.id = 'restore-account-session';
-    recovery.append(text, restore);
-    section.append(recovery);
-  }
   section.append(
     accountForm(
       editingAccountId

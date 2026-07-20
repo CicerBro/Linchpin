@@ -2,7 +2,6 @@ import { storage } from 'wxt/utils/storage';
 import {
   DEFAULT_ACCOUNT_STORE,
   DEFAULT_SETTINGS,
-  type AccountRecoveryState,
   type AccountStore,
   type FeatureSettings,
   type LegacySettings,
@@ -11,7 +10,7 @@ import {
   type UserTagMap,
 } from '../types';
 
-export const STORAGE_SCHEMA_VERSION = 4;
+export const STORAGE_SCHEMA_VERSION = 5;
 export const MAX_THREAD_VISITS = 5_000;
 export const MAX_SUBREDDIT_VISITS = 2_000;
 
@@ -25,10 +24,10 @@ export const settingsItem = storage.defineItem<FeatureSettings | LegacySettings>
 export const accountsItem = storage.defineItem<AccountStore>('local:accounts', {
   fallback: DEFAULT_ACCOUNT_STORE,
 });
-export const accountRecoveryItem = storage.defineItem<AccountRecoveryState | null>(
-  'local:accountRecovery',
-  { fallback: null },
-);
+/** Legacy cookie-switch rollback state. Kept only so migration can erase it. */
+export const accountRecoveryItem = storage.defineItem<unknown | null>('local:accountRecovery', {
+  fallback: null,
+});
 export const subredditVisitsItem = storage.defineItem<SubredditVisitMap>('local:subredditVisits', {
   fallback: {},
 });

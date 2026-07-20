@@ -101,32 +101,20 @@ export const DEFAULT_SETTINGS: FeatureSettings = {
 
 export type RedditUiVersion = 'old' | 'new' | 'unknown';
 
-/** Cookie snapshot fields we persist for Reddit session swap. */
-export type StoredCookie = {
-  name: string;
-  value: string;
-  domain: string;
-  path: string;
-  secure: boolean;
-  httpOnly: boolean;
-  sameSite: 'no_restriction' | 'lax' | 'strict' | 'unspecified';
-  expirationDate?: number;
-  storeId?: string;
-};
-
 export type AccountSessionStatus = 'unknown' | 'saved' | 'active' | 'expired';
 
 /**
  * Stored Reddit account for the switcher.
- * Cookies + TOTP secrets are sensitive — local storage only; never export.
+ * Passwords + TOTP secrets are sensitive — local storage only; never export.
  */
 export type StoredAccount = {
   id: string;
   label: string;
-  /** Reddit username if known (display / matching). */
+  /** Reddit username used by Reddit's normal login flow. */
   username?: string;
-  cookies: StoredCookie[];
-  /** Base32 TOTP secret for 2FA-assisted re-auth. Never log or export. */
+  /** Reddit password. Never log or export. */
+  password?: string;
+  /** Base32 TOTP secret used to generate the login OTP. Never log or export. */
   totpSecret?: string;
   sessionStatus: AccountSessionStatus;
   savedAt?: number;
@@ -142,14 +130,6 @@ export type AccountStore = {
 export const DEFAULT_ACCOUNT_STORE: AccountStore = {
   accounts: [],
   activeAccountId: null,
-};
-
-export type AccountRecoveryState = {
-  createdAt: number;
-  targetAccountId: string;
-  previousAccountId: string | null;
-  previousCookies: StoredCookie[];
-  reason: string;
 };
 
 /** Subreddit name (lowercase, no r/) → last visit timestamp (ms). */

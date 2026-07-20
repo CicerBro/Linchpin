@@ -8,7 +8,7 @@ export default defineConfig({
     name: 'Linchpin',
     description:
       'A lightweight personal browser toolkit for Reddit, search, media, JSON, and AI summaries.',
-    permissions: ['storage', 'cookies', 'tabs', 'activeTab', 'scripting'],
+    permissions: ['storage', 'tabs', 'activeTab', 'scripting'],
     host_permissions: ['*://*.reddit.com/*', '*://reddit.com/*'],
     optional_host_permissions: [
       'https://api.openai.com/*',

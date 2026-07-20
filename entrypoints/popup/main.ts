@@ -3,7 +3,6 @@ import './style.css';
 import {
   deleteTag,
   getAccountStore,
-  getAccountRecovery,
   getSettings,
   getSubredditVisits,
   getTags,
@@ -39,7 +38,6 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 let tags: UserTagMap = {};
 let settings: Settings;
 let accounts: AccountStore = { accounts: [], activeAccountId: null };
-let recoveryAvailable = false;
 let search = '';
 let editing: string | null = null;
 let editingAccountId: string | null = null;
@@ -75,7 +73,6 @@ async function reload(): Promise<void> {
   tags = await getTags();
   settings = await getSettings();
   accounts = await getAccountStore();
-  recoveryAvailable = Boolean(await getAccountRecovery());
   if (seed.status === 'imported') {
     statusMsg = `Imported ${seed.added} RES tags from bundled Chromium seed`;
   }
@@ -112,7 +109,7 @@ function redditSettingsHtml(): string {
       <div class="setting-list">
         ${settingRow({ id: 'enableTags', title: 'User tags', description: 'Show your labels beside Reddit usernames.', checked: settings.reddit.tags })}
         ${settingRow({ id: 'enableIgnore', title: 'Hide ignored users', description: 'Remove posts and comments from ignored accounts.', checked: settings.reddit.ignore })}
-        ${settingRow({ id: 'enableAccountSwitcher', title: 'Account switcher', description: 'Switch saved sessions from Reddit’s account menu.', checked: settings.reddit.accountSwitcher })}
+        ${settingRow({ id: 'enableAccountSwitcher', title: 'Account switcher', description: 'Switch saved Reddit logins from the account menu.', checked: settings.reddit.accountSwitcher })}
         ${settingRow({ id: 'enableScroll', title: 'Infinite scroll', description: 'Load more posts automatically on old Reddit.', checked: settings.reddit.infiniteScroll })}
         ${settingRow({ id: 'enableSubVisits', title: 'Visit hints', description: 'Show when you last opened a subreddit.', checked: settings.reddit.subredditVisits })}
         ${settingRow({ id: 'enableNcc', title: 'New comment counts', description: 'Track new replies since your last thread visit.', checked: settings.reddit.newCommentCounts })}
@@ -191,7 +188,7 @@ function importHtml(): string {
     <section class="panel import-panel">
       <p class="eyebrow">Portable and private</p>
       <h2>Import &amp; export</h2>
-      <p class="help">Backups never include account cookies, TOTP secrets, or API keys.</p>
+      <p class="help">Backups never include account passwords, TOTP secrets, or API keys.</p>
 
       <h3 class="data-section-title">Import</h3>
       <p class="help">Paste a Linchpin backup or a RES-style tag JSON. Merges Reddit users and visits; replaces settings when the file includes them.</p>
@@ -279,9 +276,7 @@ function render(): void {
     ?.replaceChildren(renderTabActions(setStatus, settings.summarizer.enabled));
   document
     .querySelector('#accounts-slot')
-    ?.replaceChildren(
-      renderAccountsSection(accounts, editingAccountId, totpDisplay, recoveryAvailable),
-    );
+    ?.replaceChildren(renderAccountsSection(accounts, editingAccountId, totpDisplay));
   document.querySelector('#tag-form-slot')?.replaceChildren(renderTagForm(editTag));
   document.querySelector('#tag-list-slot')?.replaceChildren(renderTagList(tags, search));
   void renderProviderSettings(setStatus, (next) => {
@@ -514,39 +509,38 @@ function bind(): void {
   });
 
   // Accounts
-  document.querySelector('#restore-account-session')?.addEventListener('click', async () => {
-    const result = await send<{ ok: boolean; message: string }>({
-      type: 'linchpin:restore-account-session',
-    });
-    accounts = await getAccountStore();
-    recoveryAvailable = Boolean(await getAccountRecovery());
-    setStatus(result.message);
-  });
-
   document.querySelector('#save-account')?.addEventListener('click', async () => {
-    const label = document.querySelector<HTMLInputElement>('#a-label')?.value.trim() || '';
-    if (!label) {
-      setStatus('Account label required');
-      return;
-    }
+    const labelRaw = document.querySelector<HTMLInputElement>('#a-label')?.value.trim() || '';
     const usernameRaw = document.querySelector<HTMLInputElement>('#a-user')?.value.trim() || '';
+    const passwordRaw = document.querySelector<HTMLInputElement>('#a-password')?.value || '';
     const totpRaw = document.querySelector<HTMLInputElement>('#a-totp')?.value.trim() || '';
 
     const existing = editingAccountId
       ? accounts.accounts.find((a) => a.id === editingAccountId)
       : undefined;
+    const username = usernameRaw ? normalizeUsername(usernameRaw) : '';
+    const password = passwordRaw || existing?.password || '';
+    if (!username) {
+      setStatus('Reddit username required');
+      return;
+    }
+    const label = labelRaw || username;
+    if (!password) {
+      setStatus('Reddit password required');
+      return;
+    }
 
     const next: StoredAccount = {
       id: existing?.id ?? newAccountId(),
       label,
-      username: usernameRaw ? normalizeUsername(usernameRaw) : undefined,
-      cookies: existing?.cookies ?? [],
+      username,
+      password,
       totpSecret: totpRaw ? totpRaw.replace(/\s/g, '').toUpperCase() : existing?.totpSecret,
-      sessionStatus: existing?.sessionStatus ?? 'unknown',
+      sessionStatus:
+        existing?.sessionStatus === 'active' && !passwordRaw ? 'active' : ('saved' as const),
       savedAt: existing?.savedAt,
       lastSwitchedAt: existing?.lastSwitchedAt,
     };
-    if (!next.username) delete next.username;
     if (!next.totpSecret) delete next.totpSecret;
 
     accounts = await upsertAccount(next);
@@ -572,6 +566,17 @@ function bind(): void {
     setStatus('TOTP secret cleared');
   });
 
+  document.querySelector('#clear-password')?.addEventListener('click', async () => {
+    if (!editingAccountId) return;
+    const existing = accounts.accounts.find((a) => a.id === editingAccountId);
+    if (!existing) return;
+    if (!confirm('Remove the stored Reddit password for this account?')) return;
+    const next = { ...existing, sessionStatus: 'unknown' as const };
+    delete next.password;
+    accounts = await upsertAccount(next);
+    setStatus('Reddit password cleared');
+  });
+
   app.querySelectorAll<HTMLButtonElement>('[data-edit-acct]').forEach((btn) => {
     btn.addEventListener('click', () => {
       editingAccountId = btn.dataset.editAcct || null;
@@ -583,7 +588,7 @@ function bind(): void {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.delAcct!;
       const acc = accounts.accounts.find((a) => a.id === id);
-      if (!confirm(`Remove account “${acc?.label ?? id}” and its saved session?`)) {
+      if (!confirm(`Remove account “${acc?.label ?? id}” and its saved credentials?`)) {
         return;
       }
       if (totpDisplay?.accountId === id) {
@@ -596,33 +601,14 @@ function bind(): void {
     });
   });
 
-  app.querySelectorAll<HTMLButtonElement>('[data-capture]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.capture!;
-      const result = await send<{
-        ok: boolean;
-        cookieCount: number;
-        sessionLooksValid: boolean;
-        message: string;
-      }>({ type: 'linchpin:capture-session', accountId: id });
-      accounts = await getAccountStore();
-      setStatus(result.message);
-    });
-  });
-
   app.querySelectorAll<HTMLButtonElement>('[data-switch]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.switch!;
       const result = await send<{
         ok: boolean;
-        needsRelogin: boolean;
         message: string;
       }>({ type: 'linchpin:switch-account', accountId: id });
       accounts = await getAccountStore();
-      if (result.needsRelogin) {
-        const acc = accounts.accounts.find((a) => a.id === id);
-        if (acc?.totpSecret) startTotpPolling(id);
-      }
       setStatus(result.message);
     });
   });

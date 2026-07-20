@@ -17,7 +17,7 @@ export type LinchpinBackupReddit = {
   threadVisits?: ThreadVisitMap;
 };
 
-/** Safe Linchpin backup — never includes accounts, cookies, or TOTP secrets. */
+/** Safe Linchpin backup — never includes accounts, passwords, or TOTP secrets. */
 export type LinchpinBackup = {
   source: 'linchpin';
   version: typeof LINCHPIN_BACKUP_VERSION;
@@ -108,7 +108,7 @@ function isLinchpinBackupShape(raw: Record<string, unknown>): boolean {
  * Parse Linchpin backup or RES tag JSON for import.
  * - Linchpin: settings + reddit.{users,subredditVisits,threadVisits}
  * - RES / tags-only: `{ tags: … }` or flat tag map (when not a Linchpin backup)
- * Accounts / cookies / TOTP are never imported.
+ * Accounts / passwords / TOTP are never imported.
  */
 export function parseLinchpinBackupJson(raw: unknown): ParsedBackup {
   if (!isPlainObject(raw)) {
@@ -130,7 +130,9 @@ export function parseLinchpinBackupJson(raw: unknown): ParsedBackup {
     const threadVisits = parseThreadVisits(reddit?.threadVisits);
 
     if (!settings && !tags && !subredditVisits && !threadVisits) {
-      throw new Error('Nothing to import: expected settings and/or reddit.{users,subredditVisits,threadVisits}');
+      throw new Error(
+        'Nothing to import: expected settings and/or reddit.{users,subredditVisits,threadVisits}',
+      );
     }
 
     return { settings, tags, subredditVisits, threadVisits, ignoredAccounts };

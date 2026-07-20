@@ -48,8 +48,8 @@ Load `dist/firefox-mv3/manifest.json` from `about:debugging#/runtime/this-firefo
 
 ## Privacy and permissions
 
-- `storage` holds settings, Reddit data, provider configuration, and locally saved account sessions.
-- `cookies` plus Reddit host access power the existing account switcher.
+- `storage` holds settings, Reddit data, provider configuration, and locally saved Reddit credentials.
+- Reddit host access lets the account switcher use Reddit's normal logout/login endpoints.
 - `tabs`, `activeTab`, and `scripting` support current-tab metadata and user-triggered PiP or summary extraction.
 - The tiny JSON content script matches general web pages because response pages can use any origin. Its ordinary-HTML path exits after cheap detection checks and it installs no observer after formatting.
 - Google and YouTube scripts match only their own supported hosts.
@@ -57,7 +57,7 @@ Load `dist/firefox-mv3/manifest.json` from `about:debugging#/runtime/this-firefo
 
 No analytics, telemetry, cloud account, remote configuration, summary history, or background polling is included.
 
-API keys, Reddit cookies, and TOTP secrets are stored only in extension-local storage. That storage is not strong encryption: anyone who can inspect the browser profile may be able to read it. Secrets are excluded from normal Linchpin exports, and Linchpin does not log authorization headers or extracted page text.
+API keys, Reddit passwords, and TOTP secrets are stored only in extension-local storage. That storage is not strong encryption: anyone who can inspect the browser profile may be able to read it. Secrets are excluded from normal Linchpin exports, and Linchpin does not log authorization headers or extracted page text.
 
 ## Using tab summaries
 
@@ -71,9 +71,9 @@ Extraction injects Mozilla Readability only after the user requests a summary an
 
 ## Reddit account switching
 
-Linchpin can capture Reddit cookies for a named local account and later swap them back. An optional Base32 TOTP secret can generate a login code when a captured session expires. Account switches are serialized so popup and in-page controls cannot interleave cookie changes; partial failures are reported for manual recovery.
+Linchpin follows RES's account-switching model: it logs out through Reddit, submits the saved username and password to Reddit's login endpoint, and reloads open Reddit tabs after verifying the new account. When a Base32 TOTP secret is saved, Linchpin generates and submits the current one-time code automatically. Account switches are serialized so popup and in-page controls cannot interleave login requests.
 
-These values are sensitive. Do not commit cookie dumps or TOTP secrets, and recapture a session after completing a manual recovery.
+These values are sensitive. Do not commit passwords or TOTP secrets. Existing cookie-based accounts must be edited once to add their password.
 
 ## Import and export
 
@@ -84,7 +84,7 @@ Normal exports include settings (with summarizer provider and per-style models) 
 - `reddit.users`: labels, ignore rules, links, and vote counts
 - `reddit.subredditVisits` / `reddit.threadVisits`: visit history
 
-Account cookies, TOTP secrets, and provider API keys are always excluded.
+Account passwords, TOTP secrets, and provider API keys are always excluded.
 
 ### Chromium RES seed (Chrome / Brave / Edge, …)
 

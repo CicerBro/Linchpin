@@ -1,10 +1,18 @@
 import {
   DEFAULT_SETTINGS,
+  type AccountStore,
   type FeatureSettings,
   type LegacySettings,
   type SettingsPatch,
+  type StoredAccount,
 } from '../types';
-import { schemaVersionItem, settingsItem, STORAGE_SCHEMA_VERSION } from './schema';
+import {
+  accountRecoveryItem,
+  accountsItem,
+  schemaVersionItem,
+  settingsItem,
+  STORAGE_SCHEMA_VERSION,
+} from './schema';
 
 function object(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -127,5 +135,25 @@ export async function migrateSettings(): Promise<FeatureSettings> {
     await settingsItem.setValue(next);
     await schemaVersionItem.setValue(STORAGE_SCHEMA_VERSION);
   }
+  return next;
+}
+
+/** Remove obsolete captured cookies; account switching now uses Reddit's login API. */
+export async function migrateAccounts(): Promise<AccountStore> {
+  const current = await accountsItem.getValue();
+  let changed = false;
+  const accounts = current.accounts.map((account) => {
+    const legacy = account as StoredAccount & { cookies?: unknown };
+    if (!Object.prototype.hasOwnProperty.call(legacy, 'cookies')) return account;
+    const { cookies: _cookies, ...clean } = legacy;
+    changed = true;
+    return {
+      ...clean,
+      sessionStatus: clean.password ? clean.sessionStatus : ('unknown' as const),
+    };
+  });
+  const next = changed ? { ...current, accounts } : current;
+  if (changed) await accountsItem.setValue(next);
+  if ((await accountRecoveryItem.getValue()) != null) await accountRecoveryItem.setValue(null);
   return next;
 }

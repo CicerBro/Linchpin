@@ -1,8 +1,4 @@
-import {
-  captureSessionForAccount,
-  restorePreviousAccountSession,
-  switchToAccount,
-} from '../lib/accounts/switcher';
+import { switchToAccount } from '../lib/accounts/switcher';
 import { generateTotp } from '../lib/accounts/totp';
 import type { LinchpinMessage } from '../lib/accounts/messages';
 import { getAccountStore, initializeStorage } from '../lib/storage';
@@ -53,7 +49,7 @@ export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(runStartup);
   browser.runtime.onStartup.addListener(runStartup);
 
-  browser.runtime.onMessage.addListener((message: LinchpinMessage | unknown) => {
+  browser.runtime.onMessage.addListener((message: LinchpinMessage | unknown, sender) => {
     if (!message || typeof message !== 'object' || !('type' in message)) {
       return undefined;
     }
@@ -73,16 +69,8 @@ export default defineBackground(() => {
         .then(() => ({ ok: true as const }));
     }
 
-    if (linchpinMessage.type === 'linchpin:capture-session') {
-      return serialize(() => captureSessionForAccount(linchpinMessage.accountId));
-    }
-
     if (linchpinMessage.type === 'linchpin:switch-account') {
-      return serialize(() => switchToAccount(linchpinMessage.accountId));
-    }
-
-    if (linchpinMessage.type === 'linchpin:restore-account-session') {
-      return serialize(() => restorePreviousAccountSession());
+      return serialize(() => switchToAccount(linchpinMessage.accountId, sender.tab?.id));
     }
 
     if (linchpinMessage.type === 'linchpin:totp') {

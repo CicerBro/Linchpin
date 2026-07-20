@@ -21,6 +21,8 @@ import {
 } from '../lib/reddit/subredditVisits';
 import { startNewCommentCounts } from '../lib/reddit/newCommentCount';
 import { startAccountMenu, type AccountMenuHandle } from '../lib/reddit/accountMenu';
+import { executeRedditLogin } from '../lib/accounts/redditLogin';
+import type { LinchpinMessage } from '../lib/accounts/messages';
 
 type RestartableController = FeatureController & { restart(): void };
 
@@ -87,6 +89,22 @@ export default defineContentScript({
     let stopSubredditRoute: (() => void) | null = null;
     let stopNewCommentsRoute: (() => void) | null = null;
     let disposed = false;
+
+    const onMessage = (message: LinchpinMessage | unknown) => {
+      if (
+        !message ||
+        typeof message !== 'object' ||
+        !('type' in message) ||
+        message.type !== 'linchpin:reddit-login'
+      ) {
+        return undefined;
+      }
+      return executeRedditLogin(
+        message as Extract<LinchpinMessage, { type: 'linchpin:reddit-login' }>,
+      );
+    };
+    browser.runtime.onMessage.addListener(onMessage);
+    lifecycle.add(() => browser.runtime.onMessage.removeListener(onMessage));
 
     const tagsController = createRootController(
       () => applyTagsToDocument(tags, settings!, document),

@@ -1,7 +1,6 @@
 import type { StorageMutationMessage } from './core/messages';
 import {
   DEFAULT_SETTINGS,
-  type AccountRecoveryState,
   type AccountStore,
   type FeatureSettings,
   type SettingsPatch,
@@ -11,7 +10,7 @@ import {
   type UserTag,
   type UserTagMap,
 } from './types';
-import { migrateSettings, normalizeSettings } from './storage/migrations';
+import { migrateAccounts, migrateSettings, normalizeSettings } from './storage/migrations';
 import {
   executeStorageMutation,
   normalizeSubreddit,
@@ -19,7 +18,6 @@ import {
   pruneVisitHistory,
 } from './storage/repositories';
 import {
-  accountRecoveryItem,
   accountsItem,
   settingsItem,
   subredditVisitsItem,
@@ -28,7 +26,6 @@ import {
 } from './storage/schema';
 
 export {
-  accountRecoveryItem,
   accountsItem,
   normalizeSubreddit,
   normalizeUsername,
@@ -52,6 +49,7 @@ export function isIgnoredTag(tag: UserTag | undefined): boolean {
 
 export async function initializeStorage(): Promise<void> {
   await migrateSettings();
+  await migrateAccounts();
   await pruneVisitHistory();
 }
 
@@ -65,10 +63,6 @@ export async function getSettings(): Promise<FeatureSettings> {
 
 export async function getAccountStore(): Promise<AccountStore> {
   return accountsItem.getValue();
-}
-
-export async function getAccountRecovery(): Promise<AccountRecoveryState | null> {
-  return accountRecoveryItem.getValue();
 }
 
 export async function getSubredditVisits(): Promise<SubredditVisitMap> {
@@ -175,7 +169,7 @@ export function accountPublicSummary(account: StoredAccount) {
     label: account.label,
     username: account.username,
     sessionStatus: account.sessionStatus,
-    hasCookies: account.cookies.length > 0,
+    hasPassword: Boolean(account.password),
     hasTotp: Boolean(account.totpSecret),
     savedAt: account.savedAt,
     lastSwitchedAt: account.lastSwitchedAt,

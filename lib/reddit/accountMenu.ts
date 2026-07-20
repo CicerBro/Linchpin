@@ -4,6 +4,7 @@ import { detectRedditUi } from './detect';
 import type { LinchpinMessage } from '../accounts/messages';
 
 const ROOT_ID = 'linchpin-account-switcher';
+const ACCOUNT_MENU_WIDTH = 284;
 
 async function send<T>(msg: LinchpinMessage): Promise<T> {
   return browser.runtime.sendMessage(msg) as Promise<T>;
@@ -61,7 +62,32 @@ function findNewRedditUserControl(): HTMLElement | null {
   return null;
 }
 
-type Placement = 'in-flow-ad' | 'in-flow-user' | 'fixed' | 'old';
+/** First logged-out auth control; Linchpin should sit immediately to its left. */
+function findLoggedOutAuthControl(): HTMLElement | null {
+  const selectors = [
+    'a[href*="/register" i]',
+    'a[href*="/account/register" i]',
+    'a[href*="/signup" i]',
+    'a[href*="/login" i]',
+    'faceplate-tracker[source*="signup" i] a',
+    'faceplate-tracker[source*="login" i] a',
+  ];
+  for (const selector of selectors) {
+    const element = queryDeep<HTMLElement>(document, selector);
+    if (element && element.getBoundingClientRect().width > 0) return element;
+  }
+
+  const localized = Array.from(
+    document.querySelectorAll<HTMLElement>('header a, header button'),
+  ).find(
+    (element) =>
+      /^(aanmelden|register|sign up|inloggen|log in)$/i.test(element.textContent?.trim() ?? '') &&
+      element.getBoundingClientRect().width > 0,
+  );
+  return localized ?? null;
+}
+
+type Placement = 'in-flow-auth' | 'in-flow-ad' | 'in-flow-user' | 'fixed' | 'old';
 
 function styleAsInFlow(root: HTMLElement): void {
   root.style.cssText = [
@@ -156,6 +182,24 @@ function mountInFlowBeforeAdvertise(root: HTMLElement): boolean {
   return isPlacedBeforeAdvertise(root, ad);
 }
 
+function isPlacedBeforeAuth(root: HTMLElement, auth: HTMLElement | null): boolean {
+  if (!auth || !root.isConnected) return false;
+  const unit = advertiseUnitHost(auth);
+  return root.parentElement === unit.parentElement && root.nextElementSibling === unit;
+}
+
+function mountInFlowBeforeAuth(root: HTMLElement): boolean {
+  const auth = findLoggedOutAuthControl();
+  if (!auth) return false;
+  const unit = advertiseUnitHost(auth);
+  const parent = unit.parentElement;
+  if (!parent) return false;
+
+  styleAsInFlow(root);
+  if (!isPlacedBeforeAuth(root, auth)) parent.insertBefore(root, unit);
+  return isPlacedBeforeAuth(root, auth);
+}
+
 function mountInFlowBeforeUser(root: HTMLElement): boolean {
   const user = findNewRedditUserControl();
   if (!user?.parentElement) return false;
@@ -183,7 +227,7 @@ function mountFixedFallback(root: HTMLElement): void {
   if (root.parentElement !== document.documentElement) {
     document.documentElement.appendChild(root);
   }
-  const ad = findAdvertiseControl() || findNewRedditUserControl();
+  const ad = findLoggedOutAuthControl() || findAdvertiseControl() || findNewRedditUserControl();
   const width = Math.max(root.getBoundingClientRect().width || 120, 120);
   const gap = 10;
   if (ad) {
@@ -232,7 +276,9 @@ function placeRoot(root: HTMLElement): Placement {
     return 'old';
   }
 
-  // New Reddit: prefer in-flow before Advertise (pushes header icons right)
+  // Logged out: sit immediately left of Register / Log in.
+  if (mountInFlowBeforeAuth(root)) return 'in-flow-auth';
+  // Logged in: prefer in-flow before Advertise (pushes header icons right).
   if (mountInFlowBeforeAdvertise(root)) return 'in-flow-ad';
   if (mountInFlowBeforeUser(root)) return 'in-flow-user';
   mountFixedFallback(root);
@@ -262,10 +308,10 @@ function renderPanel(
     : null;
   const label = active ? active.label : 'Accounts';
 
-  const sessionHint = (status: string): string => {
-    if (status === 'expired') return 'Session expired';
-    if (status === 'saved' || status === 'active') return 'Session saved';
-    return 'No session yet';
+  const loginHint = (status: string, hasPassword: boolean, hasTotp: boolean): string => {
+    if (!hasPassword) return 'Password needed';
+    if (status === 'expired') return 'Login failed';
+    return hasTotp ? 'Ready · 2FA' : 'Ready';
   };
 
   // Old Reddit userbar is ~12px line-height; a tall pill expands #header-bottom-right upward
@@ -328,7 +374,7 @@ function renderPanel(
         border: 1px solid rgba(196, 92, 38, 0.5);
         background: linear-gradient(180deg, #fff4ec 0%, #fde6d6 100%);
         color: #8a3d14;
-        font: 600 12px/1 inherit;
+        font: 600 12px/1 "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
         cursor: pointer;
         box-shadow: 0 1px 2px rgba(196, 92, 38, 0.16);
         white-space: nowrap;
@@ -357,77 +403,117 @@ function renderPanel(
         position: fixed;
         inset: unset;
         margin: 0;
-        width: 260px;
-        background: #fff;
+        width: ${ACCOUNT_MENU_WIDTH}px;
+        max-height: min(440px, calc(100vh - 24px));
+        overflow-y: auto;
+        color-scheme: light;
+        background: #fffdfb;
         color: #1a1917;
-        border: 1px solid #e4ddd3;
-        border-radius: 12px;
-        box-shadow: 0 12px 32px rgba(28, 27, 25, 0.18);
-        padding: 6px;
+        border: 1px solid #ded7ce;
+        border-radius: 14px;
+        box-shadow: 0 16px 40px rgba(28, 27, 25, 0.2), 0 2px 8px rgba(28, 27, 25, 0.08);
+        padding: 8px;
       }
       .head {
-        font: 600 11px/1.2 inherit;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        color: #8a847a;
-        padding: 10px 10px 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 10px 10px;
       }
-      .list { display: flex; flex-direction: column; gap: 2px; }
+      .head-title {
+        color: #514b44;
+        font-size: 11px;
+        font-weight: 750;
+        line-height: 14px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+      .head-count {
+        color: #9a9289;
+        font-size: 11px;
+        font-weight: 500;
+        line-height: 14px;
+      }
+      .list { display: flex; flex-direction: column; gap: 6px; }
       .item {
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        padding: 10px;
-        border-radius: 8px;
-        background: transparent;
+        gap: 9px;
+        padding: 11px;
+        border: 1px solid #ebe5de;
+        border-radius: 10px;
+        background: #fff;
       }
       .item.current {
-        background: #fff6ef;
+        border-color: #efd7c7;
+        background: #fff7f1;
       }
       .top {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         justify-content: space-between;
         gap: 10px;
       }
-      .meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+      .meta { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
       .label {
-        font: 650 14px/1.25 inherit;
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 18px;
         color: #1a1917;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
       .sub {
-        font: 400 12px/1.3 inherit;
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        font-size: 12px;
+        font-weight: 450;
+        line-height: 16px;
         color: #7a746c;
       }
+      .sub-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .dot { flex: 0 0 auto; margin: 0 5px; color: #bbb2a8; }
       .sub.warn { color: #b3261e; }
       .badge {
         flex-shrink: 0;
-        font: 650 11px/1 inherit;
-        padding: 4px 8px;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 14px;
+        padding: 3px 8px;
         border-radius: 999px;
-        background: #e8f5e9;
-        color: #1b5e20;
+        border: 1px solid #cfe8d4;
+        background: #edf8ef;
+        color: #246b35;
       }
       .actions { display: flex; gap: 6px; flex-wrap: wrap; }
       .action {
-        font: 600 12px/1 inherit;
-        padding: 7px 11px;
+        min-height: 30px;
+        padding: 6px 11px;
         border-radius: 8px;
-        border: 1px solid #e4ddd3;
+        border: 1px solid #ddd6ce;
         background: #fff;
         color: #1a1917;
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 16px;
         cursor: pointer;
+        transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
       }
-      .action:hover { background: #f7f4ef; }
+      .action:hover { border-color: #c9c0b7; background: #f7f4ef; }
+      .action:active { transform: translateY(1px); }
+      .action:focus-visible, .btn:focus-visible {
+        outline: 2px solid rgba(196, 92, 38, 0.45);
+        outline-offset: 2px;
+      }
       .action.primary {
-        border-color: rgba(196, 92, 38, 0.45);
+        border-color: #b85020;
         background: #c45c26;
         color: #fff;
       }
-      .action.primary:hover { filter: brightness(1.05); }
+      .action.primary:hover { border-color: #9e4118; background: #ad4c1e; }
       .action:disabled {
         opacity: 0.55;
         cursor: default;
@@ -435,13 +521,16 @@ function renderPanel(
       .empty {
         padding: 14px 10px;
         color: #7a746c;
-        font: 13px/1.4 inherit;
+        font-size: 13px;
+        line-height: 18px;
       }
       .status {
-        margin: 4px 4px 2px;
-        padding: 8px 10px;
+        margin: 8px 2px 2px;
+        padding: 9px 10px;
         border-radius: 8px;
-        font: 12px/1.35 inherit;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 16px;
         background: #f6f5f2;
         color: #5c574f;
       }
@@ -455,7 +544,10 @@ function renderPanel(
         <span class="chev">▾</span>
       </button>
       <div class="menu" id="menu" role="menu" popover="auto">
-        <div class="head">Accounts</div>
+        <div class="head">
+          <span class="head-title">Switch account</span>
+          <span class="head-count">${summaries.length} ${summaries.length === 1 ? 'account' : 'accounts'}</span>
+        </div>
         <div class="list">
         ${
           summaries.length
@@ -463,31 +555,40 @@ function renderPanel(
                 .map((a) => {
                   const isCurrent = a.id === store.activeAccountId;
                   const expired = a.sessionStatus === 'expired';
-                  const hint = sessionHint(a.sessionStatus);
-                  const userLine = a.username ? `u/${a.username}` : null;
+                  const hint = loginHint(a.sessionStatus, a.hasPassword, a.hasTotp);
+                  const showUsername =
+                    a.username &&
+                    a.label.localeCompare(a.username, undefined, { sensitivity: 'base' }) !== 0;
+                  const details = [
+                    showUsername ? `u/${a.username}` : '',
+                    isCurrent ? '' : hint,
+                  ].filter(Boolean);
                   return `
                   <div class="item ${isCurrent ? 'current' : ''}" data-account="${escapeHtml(a.id)}">
                     <div class="top">
                       <div class="meta">
                         <div class="label">${escapeHtml(a.label)}</div>
-                        <div class="sub ${expired ? 'warn' : ''}">
-                          ${userLine ? `${escapeHtml(userLine)} · ` : ''}${escapeHtml(hint)}
-                        </div>
+                        ${
+                          details.length
+                            ? `<div class="sub ${expired ? 'warn' : ''}">${details
+                                .map(
+                                  (detail, index) =>
+                                    `${index ? '<span class="dot">·</span>' : ''}<span class="sub-text">${escapeHtml(detail)}</span>`,
+                                )
+                                .join('')}</div>`
+                            : ''
+                        }
                       </div>
                       ${isCurrent ? '<span class="badge">Current</span>' : ''}
                     </div>
                     ${
-                      isCurrent && !a.hasTotp
+                      isCurrent
                         ? ''
                         : `<div class="actions">
-                      ${
-                        isCurrent
-                          ? ''
-                          : `<button type="button" class="action primary" data-switch="${escapeHtml(a.id)}" ${busy ? 'disabled' : ''}>Switch</button>`
-                      }
+                      <button type="button" class="action primary" data-switch="${escapeHtml(a.id)}" ${busy ? 'disabled' : ''}>Switch</button>
                       ${
                         a.hasTotp
-                          ? `<button type="button" class="action" data-totp="${escapeHtml(a.id)}" ${busy ? 'disabled' : ''}>Copy TOTP</button>`
+                          ? `<button type="button" class="action" data-totp="${escapeHtml(a.id)}" ${busy ? 'disabled' : ''}>Copy code</button>`
                           : ''
                       }
                     </div>`
@@ -495,7 +596,7 @@ function renderPanel(
                   </div>`;
                 })
                 .join('')
-            : `<div class="empty">No accounts yet. Add one in the Linchpin popup, then capture a session.</div>`
+            : `<div class="empty">No accounts yet. Add a Reddit login in the Linchpin popup.</div>`
         }
         </div>
         <div class="status" id="status" hidden></div>
@@ -535,6 +636,8 @@ export type AccountMenuHandle = (() => void) & { process(root: ParentNode): void
 export function startAccountMenu(): AccountMenuHandle {
   let store: AccountStore = { accounts: [], activeAccountId: null };
   let busy = false;
+  let statusText = '';
+  let statusKind: 'ok' | 'err' | '' = '';
   let open = false;
   let shadow: ShadowRoot | null = null;
   /** Stable host reference — source of truth for "is mounted" (survives shadow insertion). */
@@ -574,7 +677,7 @@ export function startAccountMenu(): AccountMenuHandle {
    * Observer-driven ensure:
    * - Remount when root is missing/disconnected
    * - Reposition (no rebuild) when in-flow aim is wrong or fixed needs refresh/upgrade
-   * - No-op when already correctly before Advertise or stably placed
+   * - No-op when already correctly before the logged-out auth controls / Advertise
    */
   const ensure = (): void => {
     if (disposed) return;
@@ -584,7 +687,13 @@ export function startAccountMenu(): AccountMenuHandle {
       return;
     }
 
+    const auth = findLoggedOutAuthControl();
     const ad = findAdvertiseControl();
+
+    if (isPlacedBeforeAuth(root, auth)) {
+      placement = 'in-flow-auth';
+      return;
+    }
 
     // Ideal: connected and immediately before Advertise
     if (isPlacedBeforeAdvertise(root, ad)) {
@@ -595,6 +704,10 @@ export function startAccountMenu(): AccountMenuHandle {
     // Stable fixed fallback: never full-remount just because we aren't AD's sibling.
     // Still try upgrade to in-flow, else refresh fixed coords only.
     if (placement === 'fixed') {
+      if (auth?.parentElement && mountInFlowBeforeAuth(root)) {
+        placement = 'in-flow-auth';
+        return;
+      }
       if (ad?.parentElement && mountInFlowBeforeAdvertise(root)) {
         placement = 'in-flow-ad';
         return;
@@ -607,14 +720,19 @@ export function startAccountMenu(): AccountMenuHandle {
       return;
     }
 
+    if (auth && !isPlacedBeforeAuth(root, auth)) {
+      reposition();
+      return;
+    }
+
     // Aiming for in-flow: reposition when Advertise exists and Linchpin is not immediately before it
     if (ad && !isPlacedBeforeAdvertise(root, ad)) {
       reposition();
       return;
     }
 
-    // No Advertise yet — keep in-flow-user if already there; otherwise place
-    if (placement === 'in-flow-user') return;
+    // No preferred anchor yet — keep a stable in-flow placement; otherwise place.
+    if (placement === 'in-flow-auth' || placement === 'in-flow-user') return;
     reposition();
   };
 
@@ -627,11 +745,18 @@ export function startAccountMenu(): AccountMenuHandle {
     }, 80);
   };
 
+  const showStatus = (text: string, kind: 'ok' | 'err' | '' = ''): void => {
+    statusText = text;
+    statusKind = kind;
+    if (shadow) setStatus(shadow, text, kind);
+  };
+
   const paint = () => {
     if (!shadow) return;
     const wasOpen = open;
     renderPanel(shadow, store, busy, placement === 'old');
     bind(shadow);
+    setStatus(shadow, statusText, statusKind);
     if (wasOpen) {
       const menu = shadow.getElementById('menu');
       const toggle = shadow.getElementById('toggle');
@@ -665,7 +790,7 @@ export function startAccountMenu(): AccountMenuHandle {
 
   const positionMenu = (toggle: Element, menu: HTMLElement): void => {
     const r = toggle.getBoundingClientRect();
-    const width = 260;
+    const width = ACCOUNT_MENU_WIDTH;
     const left = Math.min(Math.max(8, r.right - width), window.innerWidth - width - 8);
     menu.style.top = `${Math.round(r.bottom + 8)}px`;
     menu.style.left = `${Math.round(left)}px`;
@@ -710,19 +835,16 @@ export function startAccountMenu(): AccountMenuHandle {
         if (!id || busy) return;
         busy = true;
         paint();
-        setStatus(s, 'Switching…');
+        showStatus('Switching…');
         try {
           const result = await send<{
             ok: boolean;
             message?: string;
-            needsRelogin?: boolean;
           }>({ type: 'linchpin:switch-account', accountId: id });
           if (!result.ok) {
-            setStatus(s, result.message || 'Switch failed', 'err');
-          } else if (result.needsRelogin) {
-            setStatus(s, result.message || 'Session may be expired — use TOTP + login', 'err');
+            showStatus(result.message || 'Switch failed', 'err');
           } else {
-            setStatus(s, result.message || 'Switched — reloading Reddit…', 'ok');
+            showStatus(result.message || 'Switched — reloading Reddit…', 'ok');
             open = false;
             try {
               (menu as HTMLElement & { hidePopover?: () => void })?.hidePopover?.();
@@ -731,7 +853,7 @@ export function startAccountMenu(): AccountMenuHandle {
             }
           }
         } catch (err) {
-          setStatus(s, err instanceof Error ? err.message : 'Switch failed', 'err');
+          showStatus(err instanceof Error ? err.message : 'Switch failed', 'err');
         } finally {
           busy = false;
           store = await getAccountStore();
@@ -754,17 +876,17 @@ export function startAccountMenu(): AccountMenuHandle {
             error?: string;
           }>({ type: 'linchpin:totp', accountId: id });
           if (!result.ok || !result.code) {
-            setStatus(s, result.error || 'No TOTP', 'err');
+            showStatus(result.error || 'No TOTP', 'err');
             return;
           }
           try {
             await navigator.clipboard.writeText(result.code);
-            setStatus(s, `TOTP ${result.code} copied (${result.remaining ?? '?'}s)`, 'ok');
+            showStatus(`TOTP ${result.code} copied (${result.remaining ?? '?'}s)`, 'ok');
           } catch {
-            setStatus(s, `TOTP ${result.code} (${result.remaining ?? '?'}s)`, 'ok');
+            showStatus(`TOTP ${result.code} (${result.remaining ?? '?'}s)`, 'ok');
           }
         } catch (err) {
-          setStatus(s, err instanceof Error ? err.message : 'TOTP failed', 'err');
+          showStatus(err instanceof Error ? err.message : 'TOTP failed', 'err');
         }
       });
     });
