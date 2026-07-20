@@ -100,11 +100,14 @@ function parseUsersMap(raw: unknown): UserTagMap | undefined {
   }
 }
 
+function isLinchpinBackupShape(raw: Record<string, unknown>): boolean {
+  return raw.source === 'linchpin' || 'version' in raw || 'settings' in raw || 'reddit' in raw;
+}
+
 /**
- * Parse Linchpin or RES JSON for import.
- * - Linchpin v2: settings + reddit.{users,subredditVisits,threadVisits}
- * - Linchpin v1: settings + root tags/subredditVisits/threadVisits
- * - Tags-only / RES: `{ tags: … }` or flat tag map
+ * Parse Linchpin backup or RES tag JSON for import.
+ * - Linchpin: settings + reddit.{users,subredditVisits,threadVisits}
+ * - RES / tags-only: `{ tags: … }` or flat tag map (when not a Linchpin backup)
  * Accounts / cookies / TOTP are never imported.
  */
 export function parseLinchpinBackupJson(raw: unknown): ParsedBackup {
@@ -112,35 +115,35 @@ export function parseLinchpinBackupJson(raw: unknown): ParsedBackup {
     throw new Error('Invalid JSON: expected an object');
   }
 
-  const ignoredAccounts = 'accounts' in raw || 'accountStore' in raw;
-  const settings = parseSettingsPartial(raw.settings);
-  const reddit = isPlainObject(raw.reddit) ? raw.reddit : undefined;
-
-  const subredditVisits =
-    parseSubredditVisits(reddit?.subredditVisits) || parseSubredditVisits(raw.subredditVisits);
-  const threadVisits =
-    parseThreadVisits(reddit?.threadVisits) || parseThreadVisits(raw.threadVisits);
-
-  let tags: UserTagMap | undefined = parseUsersMap(reddit?.users);
-  try {
-    if (!tags && ('tags' in raw || 'users' in raw || !('settings' in raw))) {
-      if ('users' in raw && isPlainObject(raw.users)) {
-        tags = parseUsersMap(raw.users);
-      } else {
-        tags = parseResTagsJson(raw);
-        if (!Object.keys(tags).length) tags = undefined;
-      }
+  if (isLinchpinBackupShape(raw)) {
+    if (raw.version !== undefined && raw.version !== LINCHPIN_BACKUP_VERSION) {
+      throw new Error(
+        `Unsupported Linchpin backup version ${String(raw.version)} (expected ${LINCHPIN_BACKUP_VERSION})`,
+      );
     }
-  } catch (err) {
-    // Settings-only backups have no users — allow that when settings/visits exist
-    if (!settings && !subredditVisits && !threadVisits) throw err;
+
+    const ignoredAccounts = 'accounts' in raw || 'accountStore' in raw;
+    const settings = parseSettingsPartial(raw.settings);
+    const reddit = isPlainObject(raw.reddit) ? raw.reddit : undefined;
+    const tags = parseUsersMap(reddit?.users);
+    const subredditVisits = parseSubredditVisits(reddit?.subredditVisits);
+    const threadVisits = parseThreadVisits(reddit?.threadVisits);
+
+    if (!settings && !tags && !subredditVisits && !threadVisits) {
+      throw new Error('Nothing to import: expected settings and/or reddit.{users,subredditVisits,threadVisits}');
+    }
+
+    return { settings, tags, subredditVisits, threadVisits, ignoredAccounts };
   }
 
-  if (!settings && !tags && !subredditVisits && !threadVisits) {
-    throw new Error('Nothing to import: expected settings, Reddit users, and/or visit maps');
+  const tags = parseResTagsJson(raw);
+  if (!Object.keys(tags).length) {
+    throw new Error('Nothing to import: expected a Linchpin backup or RES tags');
   }
-
-  return { settings, tags, subredditVisits, threadVisits, ignoredAccounts };
+  return {
+    tags,
+    ignoredAccounts: 'accounts' in raw || 'accountStore' in raw,
+  };
 }
 
 export function parseLinchpinBackupText(text: string): ParsedBackup {

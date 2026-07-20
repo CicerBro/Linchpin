@@ -63,12 +63,10 @@ export function resValueToUserTag(
 }
 
 /**
- * Parse RES export JSON (or a Linchpin export) into a UserTagMap.
+ * Parse RES export JSON (or a Linchpin users map) into a UserTagMap.
  * Accepts:
- * - `{ reddit: { users: { "user": UserTag } } }` (Linchpin backup v2)
- * - `{ users: { "user": UserTag } }`
- * - `{ tags: { "user": { text, color, ... } } }` (RES / Linchpin v1)
- * - `{ tags: { "user": UserTag } }`
+ * - `{ reddit: { users: { "user": UserTag } } }`
+ * - `{ tags: { "user": { text, color, ... } } }` (RES)
  * - flat `{ "user": { text, ... } }` / `{ "tag.user": {...} }`
  */
 export function parseResTagsJson(raw: unknown): UserTagMap {
@@ -87,8 +85,6 @@ export function parseResTagsJson(raw: unknown): UserTagMap {
     } else {
       source = {};
     }
-  } else if (root.users && typeof root.users === 'object' && !Array.isArray(root.users)) {
-    source = root.users as Record<string, unknown>;
   } else if (root.tags && typeof root.tags === 'object') {
     source = root.tags as Record<string, unknown>;
   } else {

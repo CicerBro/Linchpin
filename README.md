@@ -85,10 +85,10 @@ The popup accepts Linchpin backups and RES-style tag JSON. Imported entries are 
 
 Normal exports (backup version 2) include settings — with summarizer provider and per-style models — plus Reddit data nested under `reddit`:
 
-- `reddit.users` — labels, ignore rules, links, and vote counts (formerly root `tags`)
+- `reddit.users` — labels, ignore rules, links, and vote counts
 - `reddit.subredditVisits` / `reddit.threadVisits` — visit history
 
-Account cookies, TOTP secrets, and provider API keys are always excluded. Version 1 backups with root-level `tags` / visit maps still import.
+Account cookies, TOTP secrets, and provider API keys are always excluded.
 
 Visit histories are pruned during startup/writes, never by a timer: threads keep the 5,000 most recent entries and subreddits keep 2,000. Old-Reddit infinite scroll stops after 20 fetched pages or 500 appended posts and provides a normal next-page link.
 
