@@ -73,6 +73,35 @@ function markdownOutput(markdown: string): HTMLDivElement {
   return output;
 }
 
+async function copyRichSummary(): Promise<void> {
+  const rendered = app.querySelector<HTMLElement>('.summary-markdown');
+  if (!rendered) throw new Error('The rendered summary is unavailable.');
+  const plainText = rendered.innerText.trim();
+  if (typeof ClipboardItem === 'function' && navigator.clipboard.write) {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        'text/html': new Blob([rendered.innerHTML], { type: 'text/html' }),
+        'text/plain': new Blob([plainText], { type: 'text/plain' }),
+      }),
+    ]);
+    return;
+  }
+  await navigator.clipboard.writeText(plainText);
+}
+
+function showCopiedState(button: HTMLButtonElement): void {
+  const originalLabel = button.dataset.copyLabel || button.textContent || '';
+  button.textContent = 'COPIED';
+  button.classList.add('copied');
+  button.setAttribute('aria-label', `${originalLabel} copied`);
+  window.setTimeout(() => {
+    if (!button.isConnected) return;
+    button.textContent = originalLabel;
+    button.classList.remove('copied');
+    button.setAttribute('aria-label', originalLabel);
+  }, 3000);
+}
+
 function field(labelText: string, control: HTMLElement): HTMLLabelElement {
   const label = element('label', { className: 'field' });
   control.setAttribute('aria-label', labelText);
@@ -315,9 +344,17 @@ async function render(): Promise<void> {
       element('p', { className: 'eyebrow', text: 'Generated result' }),
       element('h2', { text: 'Summary' }),
     );
-    const copy = element('button', { text: 'Copy summary', type: 'button' });
-    copy.id = 'copy';
-    resultHeading.append(resultCopy, copy);
+    const copyGroup = element('div', { className: 'copy-group' });
+    copyGroup.setAttribute('role', 'group');
+    copyGroup.setAttribute('aria-label', 'Copy summary');
+    const copyRich = element('button', { text: 'Copy as rich text', type: 'button' });
+    copyRich.dataset.copyFormat = 'rich';
+    copyRich.dataset.copyLabel = 'Copy as rich text';
+    const copyMarkdown = element('button', { text: 'Copy as Markdown', type: 'button' });
+    copyMarkdown.dataset.copyFormat = 'markdown';
+    copyMarkdown.dataset.copyLabel = 'Copy as Markdown';
+    copyGroup.append(copyRich, copyMarkdown);
+    resultHeading.append(resultCopy, copyGroup);
     const output = markdownOutput(summary);
     result.append(resultHeading, output);
     if (summaryMeta) {
@@ -452,21 +489,18 @@ app.addEventListener('click', async (event) => {
     abortController.current?.abort();
     return;
   }
-  if (button.id === 'copy') {
+  const copyFormat = button.dataset.copyFormat;
+  if (copyFormat === 'rich' || copyFormat === 'markdown') {
     if (button.classList.contains('copied')) return;
     try {
-      await navigator.clipboard.writeText(summary);
-      button.textContent = 'COPIED';
-      button.classList.add('copied');
-      button.setAttribute('aria-label', 'Summary copied');
-      window.setTimeout(() => {
-        if (!button.isConnected) return;
-        button.textContent = 'Copy summary';
-        button.classList.remove('copied');
-        button.setAttribute('aria-label', 'Copy summary');
-      }, 3000);
+      if (copyFormat === 'rich') {
+        await copyRichSummary();
+      } else {
+        await navigator.clipboard.writeText(summary);
+      }
+      showCopiedState(button);
     } catch {
-      status = 'Copy failed. Select the plain text below to copy it manually.';
+      status = `Copy as ${copyFormat === 'rich' ? 'rich text' : 'Markdown'} failed. Select the summary below to copy it manually.`;
       await render();
     }
     return;
