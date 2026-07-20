@@ -24,16 +24,27 @@ let mutationTail: Promise<unknown> = Promise.resolve();
 
 function serialize<T>(operation: () => Promise<T>): Promise<T> {
   const result = mutationTail.then(operation, operation);
-  mutationTail = result.then(() => undefined, () => undefined);
+  mutationTail = result.then(
+    () => undefined,
+    () => undefined,
+  );
   return result;
 }
 
 export function normalizeUsername(raw: string): string {
-  return raw.trim().replace(/^u\//i, '').replace(/^\/?(user|u)\//i, '').toLowerCase();
+  return raw
+    .trim()
+    .replace(/^u\//i, '')
+    .replace(/^\/?(user|u)\//i, '')
+    .toLowerCase();
 }
 
 export function normalizeSubreddit(raw: string): string {
-  return raw.trim().replace(/^r\//i, '').replace(/^\/?r\//i, '').toLowerCase();
+  return raw
+    .trim()
+    .replace(/^r\//i, '')
+    .replace(/^\/?r\//i, '')
+    .toLowerCase();
 }
 
 function finiteInteger(value: unknown): number | undefined {
@@ -176,8 +187,14 @@ export async function executeStorageMutation(message: StorageMutationMessage): P
             continue;
           }
           const candidate = message.overwrite
-            ? sanitizeUserTag({ ...existing, ...incoming, updatedAt: existing.updatedAt }, incoming.username)
-            : sanitizeUserTag({ ...incoming, ...existing, updatedAt: existing.updatedAt }, incoming.username);
+            ? sanitizeUserTag(
+                { ...existing, ...incoming, updatedAt: existing.updatedAt },
+                incoming.username,
+              )
+            : sanitizeUserTag(
+                { ...incoming, ...existing, updatedAt: existing.updatedAt },
+                incoming.username,
+              );
           if (equal(existing, candidate)) {
             skipped++;
             continue;

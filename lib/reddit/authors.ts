@@ -70,10 +70,7 @@ function linkTextLooksLikeUsername(el: HTMLElement, username: string): boolean {
  * querySelectorAll misses the root element itself. When `root` is an Element
  * that matches, include it; always include descendants.
  */
-function queryAllIncludingRoot(
-  root: ParentNode,
-  selectors: string,
-): HTMLElement[] {
+function queryAllIncludingRoot(root: ParentNode, selectors: string): HTMLElement[] {
   const out: HTMLElement[] = [];
   if (root instanceof Element && root.matches(selectors)) {
     out.push(root as HTMLElement);
@@ -113,9 +110,7 @@ function collectOldRedditAuthors(root: ParentNode): AuthorNode[] {
 
     const username =
       usernameFromHref(el.getAttribute('href')) ||
-      (el.classList.contains('author')
-        ? normalizeUsername(el.textContent || '')
-        : null);
+      (el.classList.contains('author') ? normalizeUsername(el.textContent || '') : null);
     if (!username || username === '[deleted]') continue;
 
     // Non-.author href matches must look like the username (skip "comments" tabs etc.)
@@ -157,8 +152,7 @@ function collectNewRedditAuthors(root: ParentNode): AuthorNode[] {
     }
 
     const username =
-      usernameFromHref(el.getAttribute('href')) ||
-      normalizeUsername(el.textContent || '');
+      usernameFromHref(el.getAttribute('href')) || normalizeUsername(el.textContent || '');
     if (!username || username === '[deleted]') continue;
 
     const inAuthorSlot = Boolean(

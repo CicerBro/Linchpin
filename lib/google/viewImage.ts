@@ -40,7 +40,8 @@ function findSelectedImage(): HTMLImageElement | null {
 }
 
 function urlFromImageResultLink(image: HTMLImageElement): string | null {
-  const link = image.closest<HTMLAnchorElement>('a[href]') ??
+  const link =
+    image.closest<HTMLAnchorElement>('a[href]') ??
     image.parentElement?.closest<HTMLAnchorElement>('a[href]');
   if (!link) return null;
   try {
@@ -52,11 +53,9 @@ function urlFromImageResultLink(image: HTMLImageElement): string | null {
 }
 
 function resolveOriginalImageUrl(image: HTMLImageElement): string | null {
-  const holders: Element[] = [
-    image,
-    image.closest('[data-iurl]'),
-    image.parentElement,
-  ].filter((element): element is Element => element !== null);
+  const holders: Element[] = [image, image.closest('[data-iurl]'), image.parentElement].filter(
+    (element): element is Element => element !== null,
+  );
 
   for (const holder of holders) {
     const direct = safeHttpUrl(

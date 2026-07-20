@@ -22,12 +22,9 @@ function simplePreSource(doc: Document): string | null {
 }
 
 /** Returns the untouched response text, or null with no DOM changes. */
-export function detectJsonSource(
-  doc: Document,
-  maxLength = MAX_JSON_SOURCE_LENGTH,
-): string | null {
+export function detectJsonSource(doc: Document, maxLength = MAX_JSON_SOURCE_LENGTH): string | null {
   const source = isJsonContentType(doc.contentType)
-    ? doc.body?.textContent ?? doc.documentElement.textContent ?? ''
+    ? (doc.body?.textContent ?? doc.documentElement.textContent ?? '')
     : simplePreSource(doc);
 
   if (source == null || source.length === 0 || source.length > maxLength) return null;

@@ -1,9 +1,4 @@
-import {
-  accountRecoveryItem,
-  getAccountStore,
-  saveAccountStore,
-  upsertAccount,
-} from '../storage';
+import { accountRecoveryItem, getAccountStore, saveAccountStore, upsertAccount } from '../storage';
 import type { StoredAccount } from '../types';
 import {
   captureRedditCookies,
@@ -44,14 +39,15 @@ let accountOperationTail: Promise<unknown> = Promise.resolve();
 
 function withAccountSwitchLock<T>(operation: () => Promise<T>): Promise<T> {
   const result = accountOperationTail.then(operation, operation);
-  accountOperationTail = result.then(() => undefined, () => undefined);
+  accountOperationTail = result.then(
+    () => undefined,
+    () => undefined,
+  );
   return result;
 }
 
 /** Save the browser's current Reddit cookies onto an account slot. */
-export async function captureSessionForAccount(
-  accountId: string,
-): Promise<CaptureResult> {
+export async function captureSessionForAccount(accountId: string): Promise<CaptureResult> {
   return withAccountSwitchLock(() => captureSessionUnlocked(accountId));
 }
 
@@ -214,7 +210,7 @@ async function switchToAccountUnlocked(accountId: string): Promise<SwitchResult>
       ? `Partial switch: ${set} cookies set and ${failed} failed. ${previousCookies.length ? 'Your prior session is retained for manual recovery. ' : ''}Re-capture this account or use TOTP to sign in again.`
       : needsRelogin
         ? `Switched, but the saved session appears expired. Use TOTP to sign in again, then Capture session.`
-      : `Switched to “${account.label}” (${set} cookies, ${tabsReloaded} tabs reloaded)`,
+        : `Switched to “${account.label}” (${set} cookies, ${tabsReloaded} tabs reloaded)`,
   };
 }
 
@@ -244,7 +240,12 @@ export function restorePreviousAccountSession(): Promise<RecoveryResult> {
     const store = await getAccountStore();
     store.activeAccountId = recovery.previousAccountId;
     for (const account of store.accounts) {
-      account.sessionStatus = account.id === recovery.previousAccountId ? 'active' : account.sessionStatus === 'active' ? 'saved' : account.sessionStatus;
+      account.sessionStatus =
+        account.id === recovery.previousAccountId
+          ? 'active'
+          : account.sessionStatus === 'active'
+            ? 'saved'
+            : account.sessionStatus;
     }
     await saveAccountStore(store);
     await accountRecoveryItem.setValue(null);

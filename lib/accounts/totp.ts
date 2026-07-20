@@ -6,7 +6,10 @@
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
 function decodeBase32(input: string): Uint8Array {
-  const cleaned = input.replace(/[\s\-]/g, '').toUpperCase().replace(/=+$/, '');
+  const cleaned = input
+    .replace(/[\s\-]/g, '')
+    .toUpperCase()
+    .replace(/=+$/, '');
   if (!cleaned) throw new Error('Empty TOTP secret');
   let bits = 0;
   let value = 0;
@@ -41,10 +44,7 @@ function toArrayBuffer(view: Uint8Array): ArrayBuffer {
   return copy.buffer;
 }
 
-async function hmacSha1(
-  key: Uint8Array,
-  message: Uint8Array,
-): Promise<Uint8Array> {
+async function hmacSha1(key: Uint8Array, message: Uint8Array): Promise<Uint8Array> {
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
     toArrayBuffer(key),

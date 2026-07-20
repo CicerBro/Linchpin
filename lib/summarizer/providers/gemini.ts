@@ -11,7 +11,10 @@ export class GeminiProvider implements SummarizerProvider {
     const controller = new AbortController();
     const abort = () => controller.abort(request.signal.reason);
     request.signal.addEventListener('abort', abort, { once: true });
-    const timer = setTimeout(() => controller.abort(new DOMException('Timed out', 'TimeoutError')), 60_000);
+    const timer = setTimeout(
+      () => controller.abort(new DOMException('Timed out', 'TimeoutError')),
+      60_000,
+    );
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -23,18 +26,33 @@ export class GeminiProvider implements SummarizerProvider {
           generationConfig: { temperature: request.temperature },
         }),
       });
-      if (response.status === 401 || response.status === 403) throw new ProviderError('Gemini rejected the API key.', 'auth', response.status);
-      if (response.status === 429) throw new ProviderError('Gemini rate limit or quota was reached.', 'rate-limit', 429);
-      if (!response.ok) throw new ProviderError(`Gemini request failed (HTTP ${response.status}).`, 'response', response.status);
+      if (response.status === 401 || response.status === 403)
+        throw new ProviderError('Gemini rejected the API key.', 'auth', response.status);
+      if (response.status === 429)
+        throw new ProviderError('Gemini rate limit or quota was reached.', 'rate-limit', 429);
+      if (!response.ok)
+        throw new ProviderError(
+          `Gemini request failed (HTTP ${response.status}).`,
+          'response',
+          response.status,
+        );
       const body: unknown = await response.json();
-      const parts = (body as { candidates?: Array<{ content?: { parts?: Array<{ text?: unknown }> } }> }).candidates?.[0]?.content?.parts;
-      const text = parts?.filter((part) => typeof part.text === 'string').map((part) => part.text).join('\n');
-      if (!text?.trim()) throw new ProviderError('Gemini returned a malformed response.', 'response');
+      const parts = (
+        body as { candidates?: Array<{ content?: { parts?: Array<{ text?: unknown }> } }> }
+      ).candidates?.[0]?.content?.parts;
+      const text = parts
+        ?.filter((part) => typeof part.text === 'string')
+        .map((part) => part.text)
+        .join('\n');
+      if (!text?.trim())
+        throw new ProviderError('Gemini returned a malformed response.', 'response');
       return text.trim();
     } catch (error) {
       if (error instanceof ProviderError) throw error;
-      if (request.signal.aborted) throw new ProviderError('Summary request cancelled.', 'cancelled');
-      if (controller.signal.aborted) throw new ProviderError('Summary request timed out.', 'timeout');
+      if (request.signal.aborted)
+        throw new ProviderError('Summary request cancelled.', 'cancelled');
+      if (controller.signal.aborted)
+        throw new ProviderError('Summary request timed out.', 'timeout');
       throw new ProviderError('Could not reach Gemini.', 'network');
     } finally {
       clearTimeout(timer);

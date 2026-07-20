@@ -1,11 +1,7 @@
 import type { Settings, UserTag, UserTagMap } from '../types';
 import { isIgnoredTag } from '../storage';
 import { findAuthorNodes } from './authors';
-import {
-  formatNetVote,
-  netVoteScore,
-  voteBadgeColors,
-} from './votes';
+import { formatNetVote, netVoteScore, voteBadgeColors } from './votes';
 
 const BADGE_ATTR = 'data-linchpin-badge';
 
@@ -17,7 +13,11 @@ function resolveCssColor(input: string): { r: number; g: number; b: number } | n
   const hex = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
   if (hex) {
     let h = hex[1];
-    if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+    if (h.length === 3)
+      h = h
+        .split('')
+        .map((c) => c + c)
+        .join('');
     return {
       r: parseInt(h.slice(0, 2), 16),
       g: parseInt(h.slice(2, 4), 16),
@@ -92,13 +92,7 @@ function badgeLabel(tag: UserTag): string {
 
 function shouldShowBadge(tag: UserTag | undefined): tag is UserTag {
   if (!tag) return false;
-  return Boolean(
-    tag.label ||
-      tag.ignore ||
-      tag.color ||
-      tag.link ||
-      netVoteScore(tag) != null,
-  );
+  return Boolean(tag.label || tag.ignore || tag.color || tag.link || netVoteScore(tag) != null);
 }
 
 function createBadge(tag: UserTag, style: Settings['reddit']['tagBadgeStyle']): HTMLElement {
@@ -190,11 +184,9 @@ function removeExistingBadge(authorEl: HTMLElement): void {
   if (next?.classList.contains('linchpin-badge')) {
     next.remove();
   }
-  authorEl.parentElement
-    ?.querySelectorAll(`.linchpin-badge[${BADGE_ATTR}]`)
-    .forEach((el) => {
-      if (el.previousElementSibling === authorEl) el.remove();
-    });
+  authorEl.parentElement?.querySelectorAll(`.linchpin-badge[${BADGE_ATTR}]`).forEach((el) => {
+    if (el.previousElementSibling === authorEl) el.remove();
+  });
 }
 
 export function applyTagsToDocument(

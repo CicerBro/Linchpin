@@ -31,7 +31,9 @@ export class Lifecycle implements FeatureController {
   }
 }
 
-export function toController(start: () => void | Cleanup | Promise<void | Cleanup>): FeatureController {
+export function toController(
+  start: () => void | Cleanup | Promise<void | Cleanup>,
+): FeatureController {
   let cleanup: Cleanup | undefined;
   let generation = 0;
   return {

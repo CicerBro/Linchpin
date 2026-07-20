@@ -1,9 +1,6 @@
 /* Adapted from JSON Formatter master (bfd6356). See ../lib/jsonFormatter/THIRD_PARTY_NOTICES.md. */
 
-import {
-  getSiteFeatureSettings,
-  watchSiteFeatureSettings,
-} from '../lib/core/siteFeatureSettings';
+import { getSiteFeatureSettings, watchSiteFeatureSettings } from '../lib/core/siteFeatureSettings';
 import { detectJsonSource } from '../lib/jsonFormatter/detect';
 import { parseJsonOnce } from '../lib/jsonFormatter/parse';
 import { mountJsonFormatter } from '../lib/jsonFormatter/render';

@@ -69,9 +69,15 @@ async function requestJson(
   } catch (error) {
     if (error instanceof ProviderError) throw error;
     if (controller.signal.aborted) {
-      throw new ProviderError(`${PROVIDER_NAMES[provider]} timed out while loading models.`, 'timeout');
+      throw new ProviderError(
+        `${PROVIDER_NAMES[provider]} timed out while loading models.`,
+        'timeout',
+      );
     }
-    throw new ProviderError(`Could not reach ${PROVIDER_NAMES[provider]} to load models.`, 'network');
+    throw new ProviderError(
+      `Could not reach ${PROVIDER_NAMES[provider]} to load models.`,
+      'network',
+    );
   } finally {
     globalThis.clearTimeout(timer);
   }
@@ -96,7 +102,11 @@ export async function fetchProviderModels(
   apiKey: string,
 ): Promise<ProviderModel[]> {
   const key = apiKey.trim();
-  if (!key) throw new ProviderError(`Add an API key for ${PROVIDER_NAMES[provider]} in the Linchpin popup.`, 'auth');
+  if (!key)
+    throw new ProviderError(
+      `Add an API key for ${PROVIDER_NAMES[provider]} in the Linchpin popup.`,
+      'auth',
+    );
 
   let models: ProviderModel[];
   if (provider === 'openai') {
@@ -123,7 +133,10 @@ export async function fetchProviderModels(
         const aliases = Array.isArray(item.aliases)
           ? item.aliases.map(text).filter((alias): alias is string => Boolean(alias))
           : [];
-        return [...(id ? [{ id, label: id }] : []), ...aliases.map((alias) => ({ id: alias, label: alias }))];
+        return [
+          ...(id ? [{ id, label: id }] : []),
+          ...aliases.map((alias) => ({ id: alias, label: alias })),
+        ];
       }),
     );
   } else if (provider === 'kimi') {
@@ -170,7 +183,10 @@ export async function fetchProviderModels(
   }
 
   if (!models.length) {
-    throw new ProviderError(`${PROVIDER_NAMES[provider]} returned no compatible text models.`, 'response');
+    throw new ProviderError(
+      `${PROVIDER_NAMES[provider]} returned no compatible text models.`,
+      'response',
+    );
   }
   return models;
 }

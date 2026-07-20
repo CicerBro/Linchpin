@@ -60,7 +60,10 @@ export async function extractLivePageForSummary(): Promise<ExtractedPage | null>
     title: (article?.title?.trim() || pageTitle).slice(0, 1000),
     url: location.href.slice(0, 4096),
     site: (article?.siteName?.trim() || location.hostname.replace(/^www\./, '')).slice(0, 255),
-    byline: (article?.byline?.trim() || document.querySelector<HTMLMetaElement>('meta[name="author"]')?.content)?.slice(0, 500),
+    byline: (
+      article?.byline?.trim() ||
+      document.querySelector<HTMLMetaElement>('meta[name="author"]')?.content
+    )?.slice(0, 500),
     language: (article?.lang?.trim() || document.documentElement.lang || undefined)?.slice(0, 64),
     excerpt: (article?.excerpt?.trim() || description)?.slice(0, 1000),
     content: text.slice(0, MAX_SUMMARY_CHARACTERS),
@@ -86,7 +89,11 @@ export type PageSnapshot = {
 export function capturePageSnapshot(): PageSnapshot {
   const maxCharacters = 80_000;
   const normalize = (value: string): string =>
-    value.replace(/\r/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    value
+      .replace(/\r/g, '')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   const description =
     document.querySelector<HTMLMetaElement>('meta[name="description"]')?.content ||
     document.querySelector<HTMLMetaElement>('meta[property="og:description"]')?.content;
@@ -106,7 +113,9 @@ export function capturePageSnapshot(): PageSnapshot {
     }
     for (const child of Object.values(record)) visitStructuredValue(child);
   };
-  for (const script of document.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"]')) {
+  for (const script of document.querySelectorAll<HTMLScriptElement>(
+    'script[type="application/ld+json"]',
+  )) {
     try {
       visitStructuredValue(JSON.parse(script.textContent || ''));
     } catch {
@@ -146,7 +155,9 @@ export async function extractSnapshotWithReadability(
       ...snapshot,
       content: snapshot.structuredText,
       originalLength: snapshot.structuredOriginalLength || snapshot.structuredText.length,
-      truncated: (snapshot.structuredOriginalLength || snapshot.structuredText.length) > snapshot.structuredText.length,
+      truncated:
+        (snapshot.structuredOriginalLength || snapshot.structuredText.length) >
+        snapshot.structuredText.length,
     };
   }
   if (!snapshot.html) return null;
@@ -170,9 +181,7 @@ export async function extractSnapshotWithReadability(
     language: snapshot.language,
     excerpt: article?.excerpt?.trim().slice(0, 1000) || snapshot.excerpt,
     content: contentText.slice(0, MAX_SUMMARY_CHARACTERS),
-    originalLength: text
-      ? text.length
-      : snapshot.structuredOriginalLength || contentText.length,
+    originalLength: text ? text.length : snapshot.structuredOriginalLength || contentText.length,
     truncated: text
       ? text.length > MAX_SUMMARY_CHARACTERS
       : (snapshot.structuredOriginalLength || contentText.length) > contentText.length,
@@ -183,7 +192,11 @@ export async function extractSnapshotWithReadability(
 export function extractPageForSummary(): ExtractedPage {
   const MAX_CHARS = 80_000;
   const normalize = (value: string): string =>
-    value.replace(/\r/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    value
+      .replace(/\r/g, '')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   const safeUrl = location.href.slice(0, 4096);
   const site = location.hostname.replace(/^www\./, '').slice(0, 255);
   const selected = normalize(getSelection()?.toString() || '');
@@ -210,7 +223,9 @@ export function extractPageForSummary(): ExtractedPage {
       }
       for (const child of Object.values(record)) visitStructuredValue(child);
     };
-    for (const script of document.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"]')) {
+    for (const script of document.querySelectorAll<HTMLScriptElement>(
+      'script[type="application/ld+json"]',
+    )) {
       try {
         visitStructuredValue(JSON.parse(script.textContent || ''));
       } catch {
@@ -219,14 +234,32 @@ export function extractPageForSummary(): ExtractedPage {
     }
     text = structuredBodies.sort((a, b) => b.length - a.length)[0] || '';
 
-    const source = document.querySelector('article') ?? document.querySelector('main') ?? document.body;
+    const source =
+      document.querySelector('article') ?? document.querySelector('main') ?? document.body;
     const excluded = [
-      'script', 'style', 'noscript', 'template', 'svg', 'canvas',
-      'nav', 'header', 'footer', 'aside', 'form', 'dialog',
-      '[hidden]', '[aria-hidden="true"]', '[inert]',
-      '[role="navigation"]', '[role="banner"]', '[role="dialog"]',
-      '[class*="cookie" i]', '[id*="cookie" i]',
-      '[class*="consent" i]', '[id*="consent" i]', '[data-linchpin-ui]',
+      'script',
+      'style',
+      'noscript',
+      'template',
+      'svg',
+      'canvas',
+      'nav',
+      'header',
+      'footer',
+      'aside',
+      'form',
+      'dialog',
+      '[hidden]',
+      '[aria-hidden="true"]',
+      '[inert]',
+      '[role="navigation"]',
+      '[role="banner"]',
+      '[role="dialog"]',
+      '[class*="cookie" i]',
+      '[id*="cookie" i]',
+      '[class*="consent" i]',
+      '[id*="consent" i]',
+      '[data-linchpin-ui]',
     ].join(',');
     if (!text) {
       const walker = document.createTreeWalker(source, NodeFilter.SHOW_TEXT);
@@ -239,7 +272,12 @@ export function extractPageForSummary(): ExtractedPage {
         const parent = node.parentElement;
         if (!parent || parent.closest(excluded)) continue;
         const style = getComputedStyle(parent);
-        if (style.display === 'none' || style.visibility === 'hidden' || Number.parseFloat(style.opacity || '1') === 0) continue;
+        if (
+          style.display === 'none' ||
+          style.visibility === 'hidden' ||
+          Number.parseFloat(style.opacity || '1') === 0
+        )
+          continue;
         const value = normalize(node.textContent || '');
         if (!value) continue;
         chunks.push(value);

@@ -51,10 +51,10 @@ function resDir(profile) {
 function hasLabelFields(value) {
   return Boolean(
     value.text ||
-      value.color ||
-      value.ignore ||
-      value.link ||
-      (typeof value.text === 'string' && value.text.length),
+    value.color ||
+    value.ignore ||
+    value.link ||
+    (typeof value.text === 'string' && value.text.length),
   );
 }
 

@@ -21,15 +21,13 @@ export function createModelPicker(
     allowEmptyOption: true,
     onChange: (value: string | number) => onChange(String(value)),
     render: {
-      option: (
-        data: Record<string, unknown>,
-        escape: (value: string) => string,
-      ) => {
+      option: (data: Record<string, unknown>, escape: (value: string) => string) => {
         const id = String(data.id || '');
         const label = String(data.label || id);
-        const detail = id && id !== label && !label.includes(id)
-          ? `<span class="model-option-id">${escape(id)}</span>`
-          : '';
+        const detail =
+          id && id !== label && !label.includes(id)
+            ? `<span class="model-option-id">${escape(id)}</span>`
+            : '';
         return `<div class="model-option"><span>${escape(label)}</span>${detail}</div>`;
       },
     },
@@ -44,11 +42,13 @@ export function setModelPickerOptions(
 ): void {
   picker.clear(true);
   picker.clearOptions();
-  picker.addOptions(options.map((option) => ({
-    id: option.id,
-    label: option.label,
-    defaultOption: option.defaultOption,
-  })));
+  picker.addOptions(
+    options.map((option) => ({
+      id: option.id,
+      label: option.label,
+      defaultOption: option.defaultOption,
+    })),
+  );
   picker.control_input.placeholder = placeholder;
   picker.setValue(value, true);
   picker.enable();

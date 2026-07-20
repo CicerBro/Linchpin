@@ -12,7 +12,8 @@ type OpenAiCompatibleOptions = {
 
 function assertHttps(url: string): URL {
   const parsed = new URL(url);
-  if (parsed.protocol !== 'https:') throw new ProviderError('Provider endpoint must use HTTPS.', 'network');
+  if (parsed.protocol !== 'https:')
+    throw new ProviderError('Provider endpoint must use HTTPS.', 'network');
   return parsed;
 }
 
@@ -38,7 +39,8 @@ export async function openAiCompatibleSummary(
   options: OpenAiCompatibleOptions,
   request: SummarizeRequest,
 ): Promise<string> {
-  if (!options.apiKey.trim()) throw new ProviderError(`Add an API key for ${options.providerName}.`, 'auth');
+  if (!options.apiKey.trim())
+    throw new ProviderError(`Add an API key for ${options.providerName}.`, 'auth');
   const endpoint = assertHttps(options.endpoint);
   const scoped = requestSignal(request.signal);
   try {
@@ -62,8 +64,8 @@ export async function openAiCompatibleSummary(
     });
     if (!response.ok) throw await providerHttpError(response, options.providerName);
     const body: unknown = await response.json();
-    const text = (body as { choices?: Array<{ message?: { content?: unknown } }> })
-      ?.choices?.[0]?.message?.content;
+    const text = (body as { choices?: Array<{ message?: { content?: unknown } }> })?.choices?.[0]
+      ?.message?.content;
     if (typeof text !== 'string' || !text.trim()) {
       throw new ProviderError(`${options.providerName} returned a malformed response.`, 'response');
     }

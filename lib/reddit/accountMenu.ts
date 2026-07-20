@@ -1,9 +1,5 @@
 import type { AccountStore } from '../types';
-import {
-  accountPublicSummary,
-  getAccountStore,
-  watchAccounts,
-} from '../storage';
+import { accountPublicSummary, getAccountStore, watchAccounts } from '../storage';
 import { detectRedditUi } from './detect';
 import type { LinchpinMessage } from '../accounts/messages';
 
@@ -13,10 +9,7 @@ async function send<T>(msg: LinchpinMessage): Promise<T> {
   return browser.runtime.sendMessage(msg) as Promise<T>;
 }
 
-function queryDeep<T extends Element>(
-  root: ParentNode,
-  selector: string,
-): T | null {
+function queryDeep<T extends Element>(root: ParentNode, selector: string): T | null {
   const direct = root.querySelector<T>(selector);
   if (direct) return direct;
   const hosts = root.querySelectorAll<HTMLElement>(
@@ -33,9 +26,7 @@ function queryDeep<T extends Element>(
 function findOldRedditAnchor(): HTMLElement | null {
   const right = document.getElementById('header-bottom-right');
   if (right) return right;
-  const user = document.querySelector<HTMLElement>(
-    '#header .user, .user a[href*="/user/"]',
-  );
+  const user = document.querySelector<HTMLElement>('#header .user, .user a[href*="/user/"]');
   return user?.parentElement ?? null;
 }
 
@@ -103,9 +94,7 @@ function advertiseUnitHost(ad: HTMLElement): HTMLElement {
 
     // Trailing icon row / header — stop; `node` is the unit to insert before
     if (
-      parent.matches(
-        'header, [slot="trailing"], reddit-header-large, nav, [role="navigation"]',
-      ) ||
+      parent.matches('header, [slot="trailing"], reddit-header-large, nav, [role="navigation"]') ||
       parent.getAttribute('slot') === 'trailing'
     ) {
       return node;
@@ -214,14 +203,13 @@ function mountFixedFallback(root: HTMLElement): void {
       'line-height:1',
     ].join(';');
   } else {
-    root.style.cssText =
-      'position:fixed;top:10px;right:280px;z-index:2147483000;margin:0;';
+    root.style.cssText = 'position:fixed;top:10px;right:280px;z-index:2147483000;margin:0;';
   }
 }
 
 function mountOldReddit(root: HTMLElement): void {
   root.style.cssText =
-      'display:inline-flex;align-items:center;margin:0 8px;vertical-align:middle;position:relative;z-index:2147483000;';
+    'display:inline-flex;align-items:center;margin:0 8px;vertical-align:middle;position:relative;z-index:2147483000;';
   const anchor = findOldRedditAnchor();
   if (anchor && root.parentElement !== anchor) {
     const user = anchor.querySelector('.user');
@@ -261,11 +249,7 @@ function getOrCreateRoot(existing: HTMLElement | null): HTMLElement {
   return root;
 }
 
-function renderPanel(
-  shadow: ShadowRoot,
-  store: AccountStore,
-  busy: boolean,
-): void {
+function renderPanel(shadow: ShadowRoot, store: AccountStore, busy: boolean): void {
   const summaries = store.accounts.map(accountPublicSummary);
   const active = store.activeAccountId
     ? summaries.find((a) => a.id === store.activeAccountId)
@@ -631,10 +615,7 @@ export function startAccountMenu(): AccountMenuHandle {
   const positionMenu = (toggle: Element, menu: HTMLElement): void => {
     const r = toggle.getBoundingClientRect();
     const width = 260;
-    const left = Math.min(
-      Math.max(8, r.right - width),
-      window.innerWidth - width - 8,
-    );
+    const left = Math.min(Math.max(8, r.right - width), window.innerWidth - width - 8);
     menu.style.top = `${Math.round(r.bottom + 8)}px`;
     menu.style.left = `${Math.round(left)}px`;
   };
@@ -688,11 +669,7 @@ export function startAccountMenu(): AccountMenuHandle {
           if (!result.ok) {
             setStatus(s, result.message || 'Switch failed', 'err');
           } else if (result.needsRelogin) {
-            setStatus(
-              s,
-              result.message || 'Session may be expired — use TOTP + login',
-              'err',
-            );
+            setStatus(s, result.message || 'Session may be expired — use TOTP + login', 'err');
           } else {
             setStatus(s, result.message || 'Switched — reloading Reddit…', 'ok');
             open = false;
@@ -703,11 +680,7 @@ export function startAccountMenu(): AccountMenuHandle {
             }
           }
         } catch (err) {
-          setStatus(
-            s,
-            err instanceof Error ? err.message : 'Switch failed',
-            'err',
-          );
+          setStatus(s, err instanceof Error ? err.message : 'Switch failed', 'err');
         } finally {
           busy = false;
           store = await getAccountStore();
@@ -735,20 +708,12 @@ export function startAccountMenu(): AccountMenuHandle {
           }
           try {
             await navigator.clipboard.writeText(result.code);
-            setStatus(
-              s,
-              `TOTP ${result.code} copied (${result.remaining ?? '?'}s)`,
-              'ok',
-            );
+            setStatus(s, `TOTP ${result.code} copied (${result.remaining ?? '?'}s)`, 'ok');
           } catch {
             setStatus(s, `TOTP ${result.code} (${result.remaining ?? '?'}s)`, 'ok');
           }
         } catch (err) {
-          setStatus(
-            s,
-            err instanceof Error ? err.message : 'TOTP failed',
-            'err',
-          );
+          setStatus(s, err instanceof Error ? err.message : 'TOTP failed', 'err');
         }
       });
     });

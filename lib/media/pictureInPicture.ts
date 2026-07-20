@@ -1,6 +1,4 @@
-export type PictureInPictureResult =
-  | { ok: true }
-  | { ok: false; error: string };
+export type PictureInPictureResult = { ok: true } | { ok: false; error: string };
 
 /**
  * This function is intentionally self-contained: browser.scripting serializes it
@@ -72,10 +70,16 @@ export async function requestPictureInPictureForBestVideo(): Promise<PictureInPi
   } catch (error) {
     const name = error instanceof DOMException ? error.name : '';
     if (name === 'NotAllowedError') {
-      return { ok: false, error: 'The browser denied Picture in Picture. Try clicking the action again.' };
+      return {
+        ok: false,
+        error: 'The browser denied Picture in Picture. Try clicking the action again.',
+      };
     }
     if (name === 'SecurityError' || name === 'NotSupportedError') {
-      return { ok: false, error: 'This video is protected or does not support Picture in Picture.' };
+      return {
+        ok: false,
+        error: 'This video is protected or does not support Picture in Picture.',
+      };
     }
     return { ok: false, error: 'Picture in Picture could not be started for this video.' };
   }

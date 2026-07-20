@@ -14,12 +14,14 @@ export default defineContentScript({
       const theme = colorScheme.matches ? 'dark' : 'light';
       if (theme === lastTheme) return;
       lastTheme = theme;
-      void browser.runtime.sendMessage({
-        type: 'linchpin:set-action-icon-theme',
-        theme,
-      }).catch(() => {
-        // The extension may be reloading while this content script is alive.
-      });
+      void browser.runtime
+        .sendMessage({
+          type: 'linchpin:set-action-icon-theme',
+          theme,
+        })
+        .catch(() => {
+          // The extension may be reloading while this content script is alive.
+        });
     };
 
     colorScheme.addEventListener('change', syncIcon);

@@ -53,7 +53,9 @@ export function renderTabActions(
       if (!result?.ok) throw new Error(result?.error || 'Picture in Picture failed.');
       window.close();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Picture in Picture is unavailable on this page.');
+      setStatus(
+        error instanceof Error ? error.message : 'Picture in Picture is unavailable on this page.',
+      );
     } finally {
       pip.disabled = false;
     }

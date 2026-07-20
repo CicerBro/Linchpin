@@ -4,11 +4,7 @@ import {
   type LegacySettings,
   type SettingsPatch,
 } from '../types';
-import {
-  schemaVersionItem,
-  settingsItem,
-  STORAGE_SCHEMA_VERSION,
-} from './schema';
+import { schemaVersionItem, settingsItem, STORAGE_SCHEMA_VERSION } from './schema';
 
 function object(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)

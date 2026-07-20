@@ -162,22 +162,44 @@ export default defineContentScript({
 
     const syncControllers = (previous: FeatureSettings | null) => {
       if (!settings) return;
-      const sync = (
-        changed: boolean,
-        enabled: boolean,
-        controller: FeatureController,
-      ) => {
+      const sync = (changed: boolean, enabled: boolean, controller: FeatureController) => {
         if (!changed) return;
         controller.stop();
         if (enabled) void controller.start();
       };
 
-      sync(!previous || previous.reddit.tags !== settings.reddit.tags || previous.reddit.tagBadgeStyle !== settings.reddit.tagBadgeStyle, settings.reddit.tags, tagsController);
-      sync(!previous || previous.reddit.ignore !== settings.reddit.ignore, settings.reddit.ignore, ignoreController);
-      sync(!previous || previous.reddit.subredditVisits !== settings.reddit.subredditVisits, settings.reddit.subredditVisits, subredditController);
-      sync(!previous || previous.reddit.accountSwitcher !== settings.reddit.accountSwitcher, settings.reddit.accountSwitcher, accountController);
-      sync(!previous || previous.reddit.infiniteScroll !== settings.reddit.infiniteScroll, settings.reddit.infiniteScroll, scrollController);
-      sync(!previous || previous.reddit.newCommentCounts !== settings.reddit.newCommentCounts, settings.reddit.newCommentCounts, newCommentsController);
+      sync(
+        !previous ||
+          previous.reddit.tags !== settings.reddit.tags ||
+          previous.reddit.tagBadgeStyle !== settings.reddit.tagBadgeStyle,
+        settings.reddit.tags,
+        tagsController,
+      );
+      sync(
+        !previous || previous.reddit.ignore !== settings.reddit.ignore,
+        settings.reddit.ignore,
+        ignoreController,
+      );
+      sync(
+        !previous || previous.reddit.subredditVisits !== settings.reddit.subredditVisits,
+        settings.reddit.subredditVisits,
+        subredditController,
+      );
+      sync(
+        !previous || previous.reddit.accountSwitcher !== settings.reddit.accountSwitcher,
+        settings.reddit.accountSwitcher,
+        accountController,
+      );
+      sync(
+        !previous || previous.reddit.infiniteScroll !== settings.reddit.infiniteScroll,
+        settings.reddit.infiniteScroll,
+        scrollController,
+      );
+      sync(
+        !previous || previous.reddit.newCommentCounts !== settings.reddit.newCommentCounts,
+        settings.reddit.newCommentCounts,
+        newCommentsController,
+      );
     };
 
     const observer = new MutationObserver((mutations) => {

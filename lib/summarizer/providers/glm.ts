@@ -6,7 +6,11 @@ export class GlmProvider implements SummarizerProvider {
   constructor(private readonly apiKey: string) {}
   summarize(request: SummarizeRequest): Promise<string> {
     return openAiCompatibleSummary(
-      { endpoint: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', apiKey: this.apiKey, providerName: 'GLM' },
+      {
+        endpoint: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+        apiKey: this.apiKey,
+        providerName: 'GLM',
+      },
       request,
     );
   }

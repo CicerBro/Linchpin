@@ -14,10 +14,7 @@ function currentSearchQuery(): string | null {
 }
 
 function findTabExample(): HTMLAnchorElement | null {
-  const selectors = [
-    'a[href*="udm=2"]',
-    'a[href*="tbm=isch"]',
-  ];
+  const selectors = ['a[href*="udm=2"]', 'a[href*="tbm=isch"]'];
   for (const selector of selectors) {
     const links = document.querySelectorAll<HTMLAnchorElement>(selector);
     for (const link of links) {
@@ -64,9 +61,8 @@ function cloneTabAfter(example: HTMLAnchorElement, href: string): HTMLAnchorElem
   const clone = source.cloneNode(true) as HTMLElement;
   removeGoogleInteractionMetadata(clone);
 
-  const link = clone instanceof HTMLAnchorElement
-    ? clone
-    : clone.querySelector<HTMLAnchorElement>('a');
+  const link =
+    clone instanceof HTMLAnchorElement ? clone : clone.querySelector<HTMLAnchorElement>('a');
   if (!link) return null;
   link.id = MAPS_CONTROL_ID;
   link.href = href;

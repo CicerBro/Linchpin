@@ -24,17 +24,9 @@ export function isRedditCookieDomain(domain: string): boolean {
   return REDDIT_DOMAIN_RE.test(d) || REDDIT_DOMAIN_RE.test(`.${d}`);
 }
 
-const URLS_TO_SCAN = [
-  'https://www.reddit.com/',
-  'https://old.reddit.com/',
-  'https://reddit.com/',
-];
+const URLS_TO_SCAN = ['https://www.reddit.com/', 'https://old.reddit.com/', 'https://reddit.com/'];
 
-function cookieUrl(c: {
-  domain: string;
-  path: string;
-  secure: boolean;
-}): string {
+function cookieUrl(c: { domain: string; path: string; secure: boolean }): string {
   const host = c.domain.startsWith('.') ? c.domain.slice(1) : c.domain;
   const scheme = c.secure ? 'https' : 'http';
   return `${scheme}://${host}${c.path || '/'}`;
@@ -43,9 +35,7 @@ function cookieUrl(c: {
 function toStored(c: BrowserCookie): StoredCookie | null {
   if (!isRedditCookieDomain(c.domain)) return null;
   const sameSite =
-    c.sameSite === 'no_restriction' ||
-    c.sameSite === 'lax' ||
-    c.sameSite === 'strict'
+    c.sameSite === 'no_restriction' || c.sameSite === 'lax' || c.sameSite === 'strict'
       ? c.sameSite
       : 'unspecified';
 
@@ -142,10 +132,7 @@ export async function injectRedditCookies(
       if (c.sameSite !== 'unspecified') {
         details.sameSite = c.sameSite;
       }
-      if (
-        typeof c.expirationDate === 'number' &&
-        c.expirationDate > Date.now() / 1000
-      ) {
+      if (typeof c.expirationDate === 'number' && c.expirationDate > Date.now() / 1000) {
         details.expirationDate = c.expirationDate;
       }
       const result = await browser.cookies.set(details);

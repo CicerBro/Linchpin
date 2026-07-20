@@ -39,9 +39,7 @@ export default defineContentScript({
     };
 
     const syncObserver = () => {
-      const shouldObserve = Boolean(
-        settings?.google.mapsButton || settings?.google.viewImage,
-      );
+      const shouldObserve = Boolean(settings?.google.mapsButton || settings?.google.viewImage);
       if (shouldObserve && !observer) {
         observer = new MutationObserver(scheduleRefresh);
         observer.observe(document.documentElement, {

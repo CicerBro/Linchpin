@@ -13,10 +13,13 @@
     "zip:firefox": "wxt zip -b firefox --mv3",
     "compile": "tsc --noEmit",
     "export:res-tags": "node scripts/export-res-tags.mjs",
-    "postinstall": "wxt prepare"
+    "postinstall": "wxt prepare",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "classic-level": "^3.0.0",
+    "prettier": "3.9.5",
     "typescript": "^5.9.3",
     "wxt": "^0.20.27"
   },

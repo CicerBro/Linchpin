@@ -6,7 +6,11 @@ export class XaiProvider implements SummarizerProvider {
   constructor(private readonly apiKey: string) {}
   summarize(request: SummarizeRequest): Promise<string> {
     return openAiCompatibleSummary(
-      { endpoint: 'https://api.x.ai/v1/chat/completions', apiKey: this.apiKey, providerName: 'xAI' },
+      {
+        endpoint: 'https://api.x.ai/v1/chat/completions',
+        apiKey: this.apiKey,
+        providerName: 'xAI',
+      },
       request,
     );
   }

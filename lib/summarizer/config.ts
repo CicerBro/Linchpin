@@ -66,22 +66,27 @@ export async function getSummarizerConfig(): Promise<SummarizerConfig> {
   const model =
     typeof record.model === 'string' && record.model.trim().length <= 160
       ? record.model.trim()
-      : typeof exportedPreferences?.model === 'string' && exportedPreferences.model.trim().length <= 160
+      : typeof exportedPreferences?.model === 'string' &&
+          exportedPreferences.model.trim().length <= 160
         ? exportedPreferences.model.trim() || DEFAULT_MODELS[provider]
-      : DEFAULT_MODELS[provider];
-  const storedModels = record.models && typeof record.models === 'object' && !Array.isArray(record.models)
-    ? (record.models as Record<string, unknown>)
-    : {};
+        : DEFAULT_MODELS[provider];
+  const storedModels =
+    record.models && typeof record.models === 'object' && !Array.isArray(record.models)
+      ? (record.models as Record<string, unknown>)
+      : {};
   const models: Record<SummaryStyle, string> = {
-    brief: typeof storedModels.brief === 'string' && storedModels.brief.trim().length <= 160
-      ? storedModels.brief.trim()
-      : model,
-    bullets: typeof storedModels.bullets === 'string' && storedModels.bullets.trim().length <= 160
-      ? storedModels.bullets.trim()
-      : model,
-    detailed: typeof storedModels.detailed === 'string' && storedModels.detailed.trim().length <= 160
-      ? storedModels.detailed.trim()
-      : model,
+    brief:
+      typeof storedModels.brief === 'string' && storedModels.brief.trim().length <= 160
+        ? storedModels.brief.trim()
+        : model,
+    bullets:
+      typeof storedModels.bullets === 'string' && storedModels.bullets.trim().length <= 160
+        ? storedModels.bullets.trim()
+        : model,
+    detailed:
+      typeof storedModels.detailed === 'string' && storedModels.detailed.trim().length <= 160
+        ? storedModels.detailed.trim()
+        : model,
   };
   const apiKeys: Partial<Record<ProviderId, string>> = {};
   if (rawKeys && typeof rawKeys === 'object' && !Array.isArray(rawKeys)) {
@@ -107,10 +112,7 @@ export async function saveSummarizerDefaults(
   });
 }
 
-export async function saveProviderApiKey(
-  provider: ProviderId,
-  apiKey: string,
-): Promise<void> {
+export async function saveProviderApiKey(provider: ProviderId, apiKey: string): Promise<void> {
   const current = await getSummarizerConfig();
   const nextKeys = { ...current.apiKeys };
   const trimmed = apiKey.trim();

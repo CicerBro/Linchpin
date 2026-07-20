@@ -1,8 +1,4 @@
-import {
-  getSubredditVisits,
-  normalizeSubreddit,
-  recordSubredditVisit,
-} from '../storage';
+import { getSubredditVisits, normalizeSubreddit, recordSubredditVisit } from '../storage';
 import type { Settings, SubredditVisitMap } from '../types';
 import { detectRedditUi } from './detect';
 
@@ -116,10 +112,7 @@ function cardForLink(a: Element): Element | null {
   );
 }
 
-function isAnnotatableSubLink(
-  a: HTMLAnchorElement,
-  name: string,
-): boolean {
+function isAnnotatableSubLink(a: HTMLAnchorElement, name: string): boolean {
   if (
     a.closest(
       [
@@ -145,9 +138,7 @@ function isAnnotatableSubLink(
 
   const looksLikeSubName =
     a.classList.contains('subreddit') ||
-    new RegExp(`^(r/)?${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i').test(
-      text,
-    ) ||
+    new RegExp(`^(r/)?${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i').test(text) ||
     /^r\/[A-Za-z0-9_]+$/i.test(text);
 
   if (!looksLikeSubName) return false;
@@ -164,10 +155,7 @@ function isAnnotatableSubLink(
 /**
  * Annotate subreddit name links with last-visited age (not icons, not profile spam).
  */
-function annotateSubredditLinks(
-  visits: SubredditVisitMap,
-  root: ParentNode = document,
-): void {
+function annotateSubredditLinks(visits: SubredditVisitMap, root: ParentNode = document): void {
   if (!allowLinkBadgesOnThisPage()) {
     clearLinkBadges();
     return;
@@ -187,10 +175,7 @@ function annotateSubredditLinks(
     if (!ts) continue;
     const signature = `${name}:${ts}`;
     const adjacent = a.nextElementSibling;
-    if (
-      a.getAttribute(LINK_MARK) === signature &&
-      adjacent?.classList.contains(BADGE_CLASS)
-    ) {
+    if (a.getAttribute(LINK_MARK) === signature && adjacent?.classList.contains(BADGE_CLASS)) {
       continue;
     }
     if (a.hasAttribute(LINK_MARK)) {

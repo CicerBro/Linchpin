@@ -113,9 +113,7 @@ export function parseLinchpinBackupJson(raw: unknown): ParsedBackup {
   }
 
   if (!settings && !tags && !subredditVisits && !threadVisits) {
-    throw new Error(
-      'Nothing to import: expected settings, tags, and/or visit maps',
-    );
+    throw new Error('Nothing to import: expected settings, tags, and/or visit maps');
   }
 
   return { settings, tags, subredditVisits, threadVisits, ignoredAccounts };

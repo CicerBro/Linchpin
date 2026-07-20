@@ -29,7 +29,10 @@ export default defineBackground(() => {
   let operationTail: Promise<unknown> = Promise.resolve();
   const serialize = <T>(operation: () => Promise<T>): Promise<T> => {
     const result = operationTail.then(operation, operation);
-    operationTail = result.then(() => undefined, () => undefined);
+    operationTail = result.then(
+      () => undefined,
+      () => undefined,
+    );
     return result;
   };
 

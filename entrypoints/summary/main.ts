@@ -3,7 +3,11 @@ import './style.css';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { getSummarizerConfig, requestProviderPermission } from '../../lib/summarizer/config';
-import { capturePageSnapshot, extractPageForSummary, extractSnapshotWithReadability } from '../../lib/summarizer/extract';
+import {
+  capturePageSnapshot,
+  extractPageForSummary,
+  extractSnapshotWithReadability,
+} from '../../lib/summarizer/extract';
 import { fetchProviderModels, type ProviderModel } from '../../lib/summarizer/models';
 import { createModelPicker } from '../../lib/summarizer/modelPicker';
 import {
@@ -16,7 +20,12 @@ import {
   type SummaryStyle,
 } from '../../lib/summarizer/prompts';
 import { createProvider } from '../../lib/summarizer/providers';
-import { PROVIDER_IDS, PROVIDER_NAMES, type ExtractedPage, type ProviderId } from '../../lib/summarizer/types';
+import {
+  PROVIDER_IDS,
+  PROVIDER_NAMES,
+  type ExtractedPage,
+  type ProviderId,
+} from '../../lib/summarizer/types';
 
 const app = document.querySelector<HTMLElement>('#app')!;
 const abortController = { current: undefined as AbortController | undefined };
@@ -35,11 +44,13 @@ let summaryModelPicker: ReturnType<typeof createModelPicker> | undefined;
 let languageOverrideEnabled = false;
 let summaryLanguage: SummaryLanguage = 'English';
 let summaryLanguageInitialized = false;
-let summaryMeta: {
-  durationMs: number;
-  provider: ProviderId;
-  model: string;
-} | undefined;
+let summaryMeta:
+  | {
+      durationMs: number;
+      provider: ProviderId;
+      model: string;
+    }
+  | undefined;
 
 function element<K extends keyof HTMLElementTagNameMap>(
   name: K,
@@ -57,12 +68,29 @@ function markdownOutput(markdown: string): HTMLDivElement {
   const parsed = marked.parse(markdown, { gfm: true, breaks: false }) as string;
   output.innerHTML = DOMPurify.sanitize(parsed, {
     ALLOWED_TAGS: [
-      'p', 'br', 'strong', 'em', 'del',
-      'h1', 'h2', 'h3', 'h4',
-      'ul', 'ol', 'li',
-      'blockquote', 'code', 'pre',
-      'table', 'thead', 'tbody', 'tr', 'th', 'td',
-      'a', 'hr',
+      'p',
+      'br',
+      'strong',
+      'em',
+      'del',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'ul',
+      'ol',
+      'li',
+      'blockquote',
+      'code',
+      'pre',
+      'table',
+      'thead',
+      'tbody',
+      'tr',
+      'th',
+      'td',
+      'a',
+      'hr',
     ],
     ALLOWED_ATTR: ['href', 'title'],
   });
@@ -111,14 +139,18 @@ function field(labelText: string, control: HTMLElement): HTMLLabelElement {
 
 function detectedSummaryLanguage(language?: string): SummaryLanguage {
   const code = language?.trim().toLocaleLowerCase().split(/[-_]/)[0];
-  return ({
-    en: 'English',
-    nl: 'Dutch',
-    pt: 'Portuguese',
-    es: 'Spanish',
-    de: 'German',
-    ru: 'Russian',
-  } as Partial<Record<string, SummaryLanguage>>)[code || ''] || 'English';
+  return (
+    (
+      {
+        en: 'English',
+        nl: 'Dutch',
+        pt: 'Portuguese',
+        es: 'Spanish',
+        de: 'German',
+        ru: 'Russian',
+      } as Partial<Record<string, SummaryLanguage>>
+    )[code || ''] || 'English'
+  );
 }
 
 function formatSeconds(durationMs: number): string {
@@ -160,7 +192,10 @@ async function render(): Promise<void> {
   heading.append(
     element('p', { className: 'eyebrow', text: 'AI page summary' }),
     element('h1', { text: 'Summarize this page' }),
-    element('p', { className: 'lead', text: 'Review the extracted source, choose a model, and send it only when you are ready.' }),
+    element('p', {
+      className: 'lead',
+      text: 'Review the extracted source, choose a model, and send it only when you are ready.',
+    }),
   );
   header.append(announcement, brand, heading);
   app.append(header);
@@ -179,7 +214,10 @@ async function render(): Promise<void> {
     const metadata = element('dl', { className: 'metadata' });
     const rows: Array<[string, string]> = [
       ['Site', extracted.site || 'Unknown'],
-      ['Length', `${extracted.content.length.toLocaleString()} characters${extracted.truncated ? ` (truncated from ${extracted.originalLength.toLocaleString()})` : ''}`],
+      [
+        'Length',
+        `${extracted.content.length.toLocaleString()} characters${extracted.truncated ? ` (truncated from ${extracted.originalLength.toLocaleString()})` : ''}`,
+      ],
     ];
     if (extracted.byline) rows.push(['Byline', extracted.byline]);
     if (extracted.language) rows.push(['Language', extracted.language]);
@@ -249,11 +287,13 @@ async function render(): Promise<void> {
   controls.append(modelControls);
   const modelStatus = element('p', {
     className: modelError ? 'warning' : 'model-status',
-    text: modelError || (modelsBusy
-      ? `Loading models from ${PROVIDER_NAMES[selectedProvider]}…`
-      : overrideModel
-        ? 'This model applies only to this summary page. Type to search for another.'
-        : 'Each format will use its saved default model. Type to search for a one-time override.'),
+    text:
+      modelError ||
+      (modelsBusy
+        ? `Loading models from ${PROVIDER_NAMES[selectedProvider]}…`
+        : overrideModel
+          ? 'This model applies only to this summary page. Type to search for another.'
+          : 'Each format will use its saved default model. Type to search for a one-time override.'),
   });
   controls.append(modelStatus);
 
@@ -264,10 +304,7 @@ async function render(): Promise<void> {
   languageCheckbox.id = 'language-override';
   languageCheckbox.checked = languageOverrideEnabled;
   languageCheckbox.disabled = busy;
-  languageToggle.append(
-    languageCheckbox,
-    element('span', { text: 'Override language' }),
-  );
+  languageToggle.append(languageCheckbox, element('span', { text: 'Override language' }));
   const languageSelect = element('select');
   languageSelect.id = 'summary-language';
   languageSelect.disabled = !languageOverrideEnabled || busy;
@@ -280,12 +317,14 @@ async function render(): Promise<void> {
   const languageField = field('Output language', languageSelect);
   languageField.classList.add('language-field');
   languageControls.append(languageToggle, languageField);
-  languageControls.append(element('p', {
-    className: 'language-help',
-    text: languageOverrideEnabled
-      ? `This summary will be requested in ${summaryLanguage}.`
-      : `Automatic: use the article text and detected language${extracted?.language ? ` (${extracted.language})` : ''}.`,
-  }));
+  languageControls.append(
+    element('p', {
+      className: 'language-help',
+      text: languageOverrideEnabled
+        ? `This summary will be requested in ${summaryLanguage}.`
+        : `Automatic: use the article text and detected language${extracted?.language ? ` (${extracted.language})` : ''}.`,
+    }),
+  );
   controls.append(languageControls);
 
   if (!overrideModel && selectedProvider === config.provider) {
@@ -372,9 +411,7 @@ async function render(): Promise<void> {
 }
 
 async function loadModels(provider: ProviderId, askForPermission = false): Promise<void> {
-  const permissionGranted = askForPermission
-    ? await requestProviderPermission(provider)
-    : true;
+  const permissionGranted = askForPermission ? await requestProviderPermission(provider) : true;
   modelProvider = provider;
   availableModels = [];
   modelError = '';
@@ -382,7 +419,9 @@ async function loadModels(provider: ProviderId, askForPermission = false): Promi
   await render();
   try {
     if (!permissionGranted) {
-      throw new Error('Provider access was not granted. Configure this provider in the Linchpin popup.');
+      throw new Error(
+        'Provider access was not granted. Configure this provider in the Linchpin popup.',
+      );
     }
     const config = await getSummarizerConfig();
     const models = await fetchProviderModels(provider, config.apiKeys[provider] || '');
@@ -415,10 +454,7 @@ async function extractLiveDocument(tabId: number): Promise<ExtractedPage | null>
       browser.runtime.onMessage.removeListener(receive);
       resolve(value);
     };
-    const receive = (
-      message: unknown,
-      sender: Browser.runtime.MessageSender,
-    ) => {
+    const receive = (message: unknown, sender: Browser.runtime.MessageSender) => {
       if (
         sender.tab?.id === tabId &&
         message &&
@@ -427,16 +463,18 @@ async function extractLiveDocument(tabId: number): Promise<ExtractedPage | null>
         message.type === 'linchpin:summary-extraction-result'
       ) {
         const page = 'page' in message ? message.page : null;
-        finish(page && typeof page === 'object' ? page as ExtractedPage : null);
+        finish(page && typeof page === 'object' ? (page as ExtractedPage) : null);
       }
       return undefined;
     };
     const timeout = globalThis.setTimeout(() => finish(null), 15_000);
     browser.runtime.onMessage.addListener(receive);
-    void browser.scripting.executeScript({
-      target: { tabId },
-      files: ['/summarizer-extractor.js'],
-    }).catch(() => finish(null));
+    void browser.scripting
+      .executeScript({
+        target: { tabId },
+        files: ['/summarizer-extractor.js'],
+      })
+      .catch(() => finish(null));
   });
 }
 
@@ -444,12 +482,18 @@ async function extract(tabId: number): Promise<void> {
   try {
     let value = await extractLiveDocument(tabId);
     if (!value) {
-      const snapshots = await browser.scripting.executeScript({ target: { tabId }, func: capturePageSnapshot });
+      const snapshots = await browser.scripting.executeScript({
+        target: { tabId },
+        func: capturePageSnapshot,
+      });
       const snapshot = snapshots[0]?.result;
       value = snapshot ? await extractSnapshotWithReadability(snapshot) : null;
     }
     if (!value) {
-      const results = await browser.scripting.executeScript({ target: { tabId }, func: extractPageForSummary });
+      const results = await browser.scripting.executeScript({
+        target: { tabId },
+        func: extractPageForSummary,
+      });
       value = (results[0]?.result as ExtractedPage | undefined) ?? null;
     }
     if (!value?.content) throw new Error('No readable text was found on this page.');
@@ -458,9 +502,14 @@ async function extract(tabId: number): Promise<void> {
       summaryLanguage = detectedSummaryLanguage(value.language);
       summaryLanguageInitialized = true;
     }
-    status = value.truncated ? 'Preview ready. The page was capped at 80,000 characters.' : 'Preview ready. Nothing has been sent yet.';
+    status = value.truncated
+      ? 'Preview ready. The page was capped at 80,000 characters.'
+      : 'Preview ready. Nothing has been sent yet.';
   } catch (error) {
-    status = error instanceof Error ? error.message : 'Could not extract this page. Restricted browser pages cannot be summarized.';
+    status =
+      error instanceof Error
+        ? error.message
+        : 'Could not extract this page. Restricted browser pages cannot be summarized.';
   }
   await render();
 }
@@ -506,12 +555,13 @@ app.addEventListener('click', async (event) => {
     return;
   }
   const style = button.dataset.summaryStyle as SummaryStyle | undefined;
-  if (!style || !SUMMARY_STYLE_OPTIONS.some((item) => item.id === style) || !extracted || busy) return;
+  if (!style || !SUMMARY_STYLE_OPTIONS.some((item) => item.id === style) || !extracted || busy)
+    return;
   const providerId = selectedProvider;
   const currentConfig = renderedConfig;
-  const model = overrideModel || (currentConfig && providerId === currentConfig.provider
-    ? currentConfig.models[style]
-    : '');
+  const model =
+    overrideModel ||
+    (currentConfig && providerId === currentConfig.provider ? currentConfig.models[style] : '');
   if (!providerId || !model) return;
   if (!(await requestProviderPermission(providerId))) {
     status = 'Provider access was not granted. Linchpin cannot contact this API.';

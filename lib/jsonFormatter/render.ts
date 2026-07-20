@@ -170,8 +170,7 @@ export function mountJsonFormatter(options: {
       enqueue(() => {
         if (state.expanded && !state.materialized) materialize(row, state);
       });
-    }
-    else if (expanded && state.resume) {
+    } else if (expanded && state.resume) {
       const resume = state.resume;
       state.resume = null;
       enqueue(resume);
@@ -202,8 +201,7 @@ export function mountJsonFormatter(options: {
       const opening = Array.isArray(childValue) ? '[' : '{';
       const closing = Array.isArray(childValue) ? ']' : '}';
       const showCount =
-        itemCountMode === 'show' ||
-        (itemCountMode === 'threshold' && length > itemCountThreshold);
+        itemCountMode === 'show' || (itemCountMode === 'threshold' && length > itemCountThreshold);
       if (showCount) {
         const summary = document.createElement('span');
         summary.className = 'rjf-summary';
@@ -241,15 +239,12 @@ export function mountJsonFormatter(options: {
   function materialize(row: HTMLElement, state: RowState): void {
     state.materialized = true;
     const arrayValue = Array.isArray(state.value) ? state.value : null;
-    const objectValue = arrayValue ? null : state.value as { [key: string]: JsonValue };
+    const objectValue = arrayValue ? null : (state.value as { [key: string]: JsonValue });
     const keys = objectValue ? Object.keys(objectValue) : null;
     const length = arrayValue?.length ?? keys?.length ?? 0;
     const entryAt = (entryIndex: number): [string | null, JsonValue] => {
       if (arrayValue) {
-        return [
-          showArrayIndices ? String(entryIndex) : null,
-          arrayValue[entryIndex] as JsonValue,
-        ];
+        return [showArrayIndices ? String(entryIndex) : null, arrayValue[entryIndex] as JsonValue];
       }
       const key = keys?.[entryIndex] ?? '';
       return [key, objectValue?.[key] as JsonValue];
@@ -281,14 +276,12 @@ export function mountJsonFormatter(options: {
   const setMode = (mode: 'formatted' | 'raw') => {
     tree.hidden = mode !== 'formatted';
     raw.hidden = mode !== 'raw';
-    toolbar.querySelector<HTMLButtonElement>('[data-action="formatted"]')?.setAttribute(
-      'aria-pressed',
-      String(mode === 'formatted'),
-    );
-    toolbar.querySelector<HTMLButtonElement>('[data-action="raw"]')?.setAttribute(
-      'aria-pressed',
-      String(mode === 'raw'),
-    );
+    toolbar
+      .querySelector<HTMLButtonElement>('[data-action="formatted"]')
+      ?.setAttribute('aria-pressed', String(mode === 'formatted'));
+    toolbar
+      .querySelector<HTMLButtonElement>('[data-action="raw"]')
+      ?.setAttribute('aria-pressed', String(mode === 'raw'));
   };
 
   const copyText = async (text: string): Promise<void> => {
@@ -336,8 +329,12 @@ export function mountJsonFormatter(options: {
     } else if (action === 'copy') {
       const text = raw.hidden ? JSON.stringify(value, null, 2) : rawSource;
       void copyText(text).then(
-        () => { showCopyStatus('Copied!', 'success'); },
-        () => { showCopyStatus('Copy failed', 'error'); },
+        () => {
+          showCopyStatus('Copied!', 'success');
+        },
+        () => {
+          showCopyStatus('Copy failed', 'error');
+        },
       );
     }
   });

@@ -7,9 +7,7 @@ export type MutationBatch = {
  * Collect DOM roots into one frame. Parents replace queued descendants, and
  * hidden tabs use a microtask because animation frames may be suspended.
  */
-export function createMutationBatch(
-  flush: (roots: Element[]) => void,
-): MutationBatch {
+export function createMutationBatch(flush: (roots: Element[]) => void): MutationBatch {
   const roots = new Set<Element>();
   let frame: number | null = null;
   let microtaskPending = false;

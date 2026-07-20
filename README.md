@@ -10,13 +10,13 @@ Linchpin is not affiliated with Reddit, Google, YouTube, RES, Callum Locke, or a
 
 ## Features
 
-| Area         | Features                                                                                                                           |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Reddit       | User tags and ignore rules, account switching, bounded old-Reddit infinite scroll, subreddit visit hints, and new-comment counts   |
-| JSON         | Automatic detection, an initially expanded tree with individual-node collapse, clickable links, raw/formatted views, copy, theme selection, array-index and item-count controls, and unsafe-integer warnings |
-| Google       | Restored Maps search tab and a View Image action on Google Images                                                                  |
-| YouTube      | Optional CSS-first Shorts removal and `/shorts/…` to `/watch?v=…` conversion                                                       |
-| Media        | User-triggered native Picture-in-Picture for the most useful visible video                                                         |
+| Area         | Features                                                                                                                                                                                                                 |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Reddit       | User tags and ignore rules, account switching, bounded old-Reddit infinite scroll, subreddit visit hints, and new-comment counts                                                                                         |
+| JSON         | Automatic detection, an initially expanded tree with individual-node collapse, clickable links, raw/formatted views, copy, theme selection, array-index and item-count controls, and unsafe-integer warnings             |
+| Google       | Restored Maps search tab and a View Image action on Google Images                                                                                                                                                        |
+| YouTube      | Optional CSS-first Shorts removal and `/shorts/…` to `/watch?v=…` conversion                                                                                                                                             |
+| Media        | User-triggered native Picture-in-Picture for the most useful visible video                                                                                                                                               |
 | AI summaries | User-triggered article extraction and Markdown summaries using OpenAI, Anthropic, xAI, Kimi, Gemini, GLM, or OpenRouter; per-format defaults, one-time model overrides, language control, and rich-text or Markdown copy |
 
 Settings are grouped by feature and can be changed independently. Existing version 0.2 settings are migrated on first run.

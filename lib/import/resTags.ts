@@ -48,8 +48,7 @@ export function resValueToUserTag(
   optionalPrimitive(value, 'votesDown', 'number', name);
   const label = typeof value.text === 'string' ? value.text : undefined;
   const ignore =
-    value.ignore === true ||
-    (typeof label === 'string' && label.trim().toLowerCase() === 'ignore');
+    value.ignore === true || (typeof label === 'string' && label.trim().toLowerCase() === 'ignore');
 
   return sanitizeUserTag({
     username: name,

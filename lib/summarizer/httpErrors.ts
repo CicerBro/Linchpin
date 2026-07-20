@@ -9,9 +9,8 @@ type ProviderErrorPayload = {
 };
 
 function errorDetails(payload: unknown): { code: string; type: string; message: string } {
-  const error = payload && typeof payload === 'object'
-    ? (payload as ProviderErrorPayload).error
-    : undefined;
+  const error =
+    payload && typeof payload === 'object' ? (payload as ProviderErrorPayload).error : undefined;
   return {
     code: typeof error?.code === 'string' ? error.code.toLowerCase() : '',
     type: typeof error?.type === 'string' ? error.type.toLowerCase() : '',
@@ -62,4 +61,3 @@ export async function providerHttpError(
     status,
   );
 }
-

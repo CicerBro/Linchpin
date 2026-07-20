@@ -12,9 +12,7 @@ function findContainer(authorEl: HTMLElement): HTMLElement | null {
 
   if (ui === 'old') {
     return (
-      authorEl.closest<HTMLElement>('.thing') ||
-      authorEl.closest<HTMLElement>('.Comment') ||
-      null
+      authorEl.closest<HTMLElement>('.thing') || authorEl.closest<HTMLElement>('.Comment') || null
     );
   }
 

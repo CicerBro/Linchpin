@@ -49,13 +49,7 @@ export class ProviderError extends Error {
   constructor(
     message: string,
     readonly kind:
-      | 'auth'
-      | 'rate-limit'
-      | 'quota'
-      | 'timeout'
-      | 'cancelled'
-      | 'network'
-      | 'response',
+      'auth' | 'rate-limit' | 'quota' | 'timeout' | 'cancelled' | 'network' | 'response',
     readonly status?: number,
   ) {
     super(message);

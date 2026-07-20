@@ -114,10 +114,7 @@ export async function renderProviderSettings(
   };
 
   let loadGeneration = 0;
-  const loadModels = async (
-    id: ProviderId,
-    preferred: Record<SummaryStyle, string>,
-  ) => {
+  const loadModels = async (id: ProviderId, preferred: Record<SummaryStyle, string>) => {
     const generation = ++loadGeneration;
     const latest = await getSummarizerConfig();
     const apiKey = latest.apiKeys[id] || '';
@@ -135,7 +132,9 @@ export async function renderProviderSettings(
       modelStatus.textContent = `${models.length} compatible ${models.length === 1 ? 'model' : 'models'} available.`;
       if (!sameDefaults(normalized, latest.models) || id !== latest.provider) {
         await saveSummarizerDefaults(id, normalized);
-        const next = await updateSettings({ summarizer: { provider: id, model: normalized.brief } });
+        const next = await updateSettings({
+          summarizer: { provider: id, model: normalized.brief },
+        });
         onSettingsChanged?.(next);
       }
     } catch (error) {
@@ -174,18 +173,24 @@ export async function renderProviderSettings(
     const id = provider.value as ProviderId;
     selectedDefaults = { ...selectedDefaults, [style]: value };
     await saveSummarizerDefaults(id, selectedDefaults);
-    const next = await updateSettings({ summarizer: { provider: id, model: selectedDefaults.brief } });
+    const next = await updateSettings({
+      summarizer: { provider: id, model: selectedDefaults.brief },
+    });
     onSettingsChanged?.(next);
-    const label = SUMMARY_STYLE_OPTIONS.find((item) => item.id === style)?.label.split(' — ')[0] || style;
+    const label =
+      SUMMARY_STYLE_OPTIONS.find((item) => item.id === style)?.label.split(' — ')[0] || style;
     modelStatus.textContent = `${label} default set to ${value}.`;
   };
 
   const warning = document.createElement('p');
   warning.className = 'help warn';
-  warning.textContent = 'API keys stay in extension local storage, which is not strongly encrypted. Linchpin exports never include API keys, account cookies, or TOTP secrets.';
+  warning.textContent =
+    'API keys stay in extension local storage, which is not strongly encrypted. Linchpin exports never include API keys, account cookies, or TOTP secrets.';
   const save = document.createElement('button');
   save.type = 'button';
-  save.textContent = config.apiKeys[config.provider] ? 'Save key / refresh models' : 'Save key & load models';
+  save.textContent = config.apiKeys[config.provider]
+    ? 'Save key / refresh models'
+    : 'Save key & load models';
   save.addEventListener('click', async () => {
     const id = provider.value as ProviderId;
     if (!(await requestProviderPermission(id))) {

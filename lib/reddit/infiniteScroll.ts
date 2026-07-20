@@ -46,12 +46,7 @@ function findNextUrl(doc: Document = document): string | null {
 
 function thingId(el: Element): string | null {
   // Reddit uses data-fullname (e.g. t3_abc); keep legacy typo attr as fallback
-  return (
-    el.getAttribute('data-fullname') ||
-    el.getAttribute('data-fullnamename') ||
-    el.id ||
-    null
-  );
+  return el.getAttribute('data-fullname') || el.getAttribute('data-fullnamename') || el.id || null;
 }
 
 /** True when the load sentinel is still near/in the viewport. */
@@ -110,10 +105,7 @@ async function loadNextPage(
 ): Promise<void> {
   if (state.loading || state.stopped || !state.nextUrl) return;
   if (generation !== state.generation) return;
-  if (
-    state.fetchedPages >= MAX_FETCHED_PAGES ||
-    state.appendedPosts >= MAX_APPENDED_POSTS
-  ) {
+  if (state.fetchedPages >= MAX_FETCHED_PAGES || state.appendedPosts >= MAX_APPENDED_POSTS) {
     showContinueLink();
     return;
   }
@@ -135,8 +127,7 @@ async function loadNextPage(
     if (generation !== state.generation) return;
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const remoteTable =
-      doc.getElementById('siteTable') ||
-      doc.querySelector('.sitetable.linklisting');
+      doc.getElementById('siteTable') || doc.querySelector('.sitetable.linklisting');
     if (!remoteTable) {
       state.stopped = true;
       setStatus('No more posts.');
@@ -213,9 +204,7 @@ async function loadNextPage(
   }
 }
 
-export function startOldRedditInfiniteScroll(
-  onAppended: (nodes: Element[]) => void,
-): () => void {
+export function startOldRedditInfiniteScroll(onAppended: (nodes: Element[]) => void): () => void {
   if (!isOldRedditListingPage()) {
     return () => undefined;
   }

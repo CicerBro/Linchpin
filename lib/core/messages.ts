@@ -10,7 +10,11 @@ import type {
 } from '../types';
 
 export type StorageMutationMessage =
-  | { type: 'linchpin:storage'; operation: 'upsert-tag'; value: Omit<UserTag, 'updatedAt'> & { updatedAt?: number } }
+  | {
+      type: 'linchpin:storage';
+      operation: 'upsert-tag';
+      value: Omit<UserTag, 'updatedAt'> & { updatedAt?: number };
+    }
   | { type: 'linchpin:storage'; operation: 'delete-tag'; username: string }
   | { type: 'linchpin:storage'; operation: 'merge-tags'; value: UserTagMap; overwrite: boolean }
   | { type: 'linchpin:storage'; operation: 'update-settings'; value: SettingsPatch }
@@ -20,15 +24,21 @@ export type StorageMutationMessage =
   | { type: 'linchpin:storage'; operation: 'remove-account'; id: string }
   | { type: 'linchpin:storage'; operation: 'set-active-account'; id: string | null }
   | { type: 'linchpin:storage'; operation: 'record-subreddit'; name: string }
-  | { type: 'linchpin:storage'; operation: 'record-thread'; fullname: string; commentCount: number; path?: string }
+  | {
+      type: 'linchpin:storage';
+      operation: 'record-thread';
+      fullname: string;
+      commentCount: number;
+      path?: string;
+    }
   | { type: 'linchpin:storage'; operation: 'merge-subreddits'; value: SubredditVisitMap }
   | { type: 'linchpin:storage'; operation: 'merge-threads'; value: ThreadVisitMap };
 
 export function isStorageMutationMessage(value: unknown): value is StorageMutationMessage {
   return Boolean(
     value &&
-      typeof value === 'object' &&
-      (value as { type?: unknown }).type === 'linchpin:storage' &&
-      typeof (value as { operation?: unknown }).operation === 'string',
+    typeof value === 'object' &&
+    (value as { type?: unknown }).type === 'linchpin:storage' &&
+    typeof (value as { operation?: unknown }).operation === 'string',
   );
 }

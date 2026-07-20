@@ -56,7 +56,10 @@ export function normalizeSiteFeatureSettings(value: unknown): SiteFeatureSetting
 
   return {
     jsonFormatter: {
-      enabled: booleanValue(json.enabled ?? root.enableJsonFormatter, DEFAULTS.jsonFormatter.enabled),
+      enabled: booleanValue(
+        json.enabled ?? root.enableJsonFormatter,
+        DEFAULTS.jsonFormatter.enabled,
+      ),
       darkMode:
         theme === 'light' || theme === 'dark' || theme === 'system'
           ? theme

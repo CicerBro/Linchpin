@@ -1,7 +1,4 @@
-import {
-  getThreadVisits,
-  recordThreadVisit,
-} from '../storage';
+import { getThreadVisits, recordThreadVisit } from '../storage';
 import type { Settings, ThreadVisit } from '../types';
 import { detectRedditUi } from './detect';
 
@@ -49,10 +46,7 @@ export function threadFullnameFromPage(): string | null {
     document.querySelector('.thing.link[data-fullname]') ||
     document.querySelector('shreddit-post[id]');
   if (thing) {
-    const id =
-      thing.getAttribute('data-fullname') ||
-      thing.getAttribute('id') ||
-      '';
+    const id = thing.getAttribute('data-fullname') || thing.getAttribute('id') || '';
     if (/^t3_/i.test(id)) return id.toLowerCase();
     if (/^[a-z0-9]+$/i.test(id)) return `t3_${id.toLowerCase()}`;
   }
@@ -76,9 +70,7 @@ function countCommentsNew(): number {
     const n = parseInt(attr, 10);
     if (!Number.isNaN(n)) return n;
   }
-  const meta = document.querySelector(
-    'faceplate-number[number], [data-testid="comment-count"]',
-  );
+  const meta = document.querySelector('faceplate-number[number], [data-testid="comment-count"]');
   if (meta) {
     const n = parseInt((meta.textContent || '').replace(/[^\d]/g, ''), 10);
     if (!Number.isNaN(n)) return n;
@@ -95,10 +87,7 @@ function commentTimestamp(el: Element): number | null {
     el.querySelector('time[datetime]') ||
     el.querySelector('[datetime]') ||
     el.querySelector('faceplate-timeago');
-  const dt =
-    time?.getAttribute('datetime') ||
-    time?.getAttribute('ts') ||
-    null;
+  const dt = time?.getAttribute('datetime') || time?.getAttribute('ts') || null;
   if (!dt) return null;
   // faceplate may use seconds
   if (/^\d+$/.test(dt)) {
@@ -130,11 +119,7 @@ function highlightNewComments(since: number): number {
   return highlighted;
 }
 
-function showBanner(
-  delta: number,
-  previous: ThreadVisit,
-  onDismiss: () => void,
-): void {
+function showBanner(delta: number, previous: ThreadVisit, onDismiss: () => void): void {
   ensureStyles();
   let banner = document.getElementById(BANNER_ID);
   if (!banner) {

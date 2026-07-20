@@ -20,28 +20,15 @@ import {
   upsertAccount,
   upsertTag,
 } from '../../lib/storage';
-import type {
-  AccountStore,
-  Settings,
-  StoredAccount,
-  UserTag,
-  UserTagMap,
-} from '../../lib/types';
+import type { AccountStore, Settings, StoredAccount, UserTag, UserTagMap } from '../../lib/types';
 import { parseResTagsText } from '../../lib/import/resTags';
-import {
-  buildLinchpinBackup,
-  parseLinchpinBackupText,
-} from '../../lib/import/linchpinBackup';
+import { buildLinchpinBackup, parseLinchpinBackupText } from '../../lib/import/linchpinBackup';
 import { ensureResSeedImported } from '../../lib/import/ensureSeed';
 import { maskSecret } from '../../lib/accounts/totp';
 import type { LinchpinMessage } from '../../lib/accounts/messages';
 import { renderTabActions } from './actions';
 import { renderProviderSettings } from './providerSettings';
-import {
-  renderAccountsSection,
-  renderTagForm,
-  renderTagList,
-} from './contentSections';
+import { renderAccountsSection, renderTagForm, renderTagList } from './contentSections';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
@@ -53,8 +40,7 @@ let search = '';
 let editing: string | null = null;
 let editingAccountId: string | null = null;
 let statusMsg = '';
-let totpDisplay: { accountId: string; code: string; remaining: number } | null =
-  null;
+let totpDisplay: { accountId: string; code: string; remaining: number } | null = null;
 let totpTimer: number | undefined;
 let statusTimer: number | undefined;
 let renderGeneration = 0;
@@ -247,12 +233,14 @@ function render(): void {
     status.textContent = statusMsg;
     document.querySelector('#status-slot')?.replaceChildren(status);
   }
-  document.querySelector('#tab-actions-slot')?.replaceChildren(
-    renderTabActions(setStatus, settings.summarizer.enabled),
-  );
-  document.querySelector('#accounts-slot')?.replaceChildren(
-    renderAccountsSection(accounts, editingAccountId, totpDisplay, recoveryAvailable),
-  );
+  document
+    .querySelector('#tab-actions-slot')
+    ?.replaceChildren(renderTabActions(setStatus, settings.summarizer.enabled));
+  document
+    .querySelector('#accounts-slot')
+    ?.replaceChildren(
+      renderAccountsSection(accounts, editingAccountId, totpDisplay, recoveryAvailable),
+    );
   document.querySelector('#tag-form-slot')?.replaceChildren(renderTagForm(editTag));
   document.querySelector('#tag-list-slot')?.replaceChildren(renderTagList(tags, search));
   void renderProviderSettings(setStatus, (next) => {
@@ -277,17 +265,11 @@ function syncActiveView(): void {
 }
 
 function readForm(): Omit<UserTag, 'updatedAt'> {
-  const user = normalizeUsername(
-    document.querySelector<HTMLInputElement>('#f-user')?.value || '',
-  );
-  const label =
-    document.querySelector<HTMLInputElement>('#f-label')?.value.trim() ||
-    undefined;
-  const colorSelect =
-    document.querySelector<HTMLSelectElement>('#f-color')?.value || '';
+  const user = normalizeUsername(document.querySelector<HTMLInputElement>('#f-user')?.value || '');
+  const label = document.querySelector<HTMLInputElement>('#f-label')?.value.trim() || undefined;
+  const colorSelect = document.querySelector<HTMLSelectElement>('#f-color')?.value || '';
   const color = colorSelect || undefined;
-  const ignore =
-    document.querySelector<HTMLInputElement>('#f-ignore')?.checked ?? false;
+  const ignore = document.querySelector<HTMLInputElement>('#f-ignore')?.checked ?? false;
 
   return {
     username: user,
@@ -365,7 +347,11 @@ function bind(): void {
     });
   });
   app.querySelector('.app-nav')?.addEventListener('keydown', (event) => {
-    if (!(event instanceof KeyboardEvent) || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
+    if (
+      !(event instanceof KeyboardEvent) ||
+      (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')
+    )
+      return;
     const current = viewButtons.findIndex((button) => button.dataset.view === activeView);
     const offset = event.key === 'ArrowRight' ? 1 : -1;
     const next = viewButtons[(current + offset + viewButtons.length) % viewButtons.length];
@@ -409,13 +395,14 @@ function bind(): void {
   document.querySelector('#badgeStyle')?.addEventListener('change', async (e) => {
     settings = await updateSettings({
       reddit: {
-        tagBadgeStyle: (e.target as HTMLSelectElement)
-          .value as Settings['reddit']['tagBadgeStyle'],
+        tagBadgeStyle: (e.target as HTMLSelectElement).value as Settings['reddit']['tagBadgeStyle'],
       },
     });
     setStatus('Settings saved');
   });
-  const checkboxSettings: Array<[string, (checked: boolean) => Parameters<typeof updateSettings>[0]]> = [
+  const checkboxSettings: Array<
+    [string, (checked: boolean) => Parameters<typeof updateSettings>[0]]
+  > = [
     ['#enableAccountSwitcher', (checked) => ({ reddit: { accountSwitcher: checked } })],
     ['#enableJson', (checked) => ({ jsonFormatter: { enabled: checked } })],
     ['#jsonArrayIndices', (checked) => ({ jsonFormatter: { showArrayIndices: checked } })],
@@ -496,16 +483,13 @@ function bind(): void {
   });
 
   document.querySelector('#save-account')?.addEventListener('click', async () => {
-    const label =
-      document.querySelector<HTMLInputElement>('#a-label')?.value.trim() || '';
+    const label = document.querySelector<HTMLInputElement>('#a-label')?.value.trim() || '';
     if (!label) {
       setStatus('Account label required');
       return;
     }
-    const usernameRaw =
-      document.querySelector<HTMLInputElement>('#a-user')?.value.trim() || '';
-    const totpRaw =
-      document.querySelector<HTMLInputElement>('#a-totp')?.value.trim() || '';
+    const usernameRaw = document.querySelector<HTMLInputElement>('#a-user')?.value.trim() || '';
+    const totpRaw = document.querySelector<HTMLInputElement>('#a-totp')?.value.trim() || '';
 
     const existing = editingAccountId
       ? accounts.accounts.find((a) => a.id === editingAccountId)
@@ -516,9 +500,7 @@ function bind(): void {
       label,
       username: usernameRaw ? normalizeUsername(usernameRaw) : undefined,
       cookies: existing?.cookies ?? [],
-      totpSecret: totpRaw
-        ? totpRaw.replace(/\s/g, '').toUpperCase()
-        : existing?.totpSecret,
+      totpSecret: totpRaw ? totpRaw.replace(/\s/g, '').toUpperCase() : existing?.totpSecret,
       sessionStatus: existing?.sessionStatus ?? 'unknown',
       savedAt: existing?.savedAt,
       lastSwitchedAt: existing?.lastSwitchedAt,
@@ -624,8 +606,7 @@ function bind(): void {
   });
 
   document.querySelector('#import-btn')?.addEventListener('click', async () => {
-    const text =
-      document.querySelector<HTMLTextAreaElement>('#import-json')?.value || '';
+    const text = document.querySelector<HTMLTextAreaElement>('#import-json')?.value || '';
     try {
       const parsed = parseLinchpinBackupText(text);
       const parts: string[] = [];
@@ -637,21 +618,15 @@ function bind(): void {
       if (parsed.tags) {
         const result = await mergeTags(parsed.tags);
         tags = await getTags();
-        parts.push(
-          `tags (${result.added} added, ${result.updated} merged)`,
-        );
+        parts.push(`tags (${result.added} added, ${result.updated} merged)`);
       }
       if (parsed.subredditVisits) {
         const result = await mergeSubredditVisits(parsed.subredditVisits);
-        parts.push(
-          `sub visits (${result.added}+${result.updated})`,
-        );
+        parts.push(`sub visits (${result.added}+${result.updated})`);
       }
       if (parsed.threadVisits) {
         const result = await mergeThreadVisits(parsed.threadVisits);
-        parts.push(
-          `thread visits (${result.added}+${result.updated})`,
-        );
+        parts.push(`thread visits (${result.added}+${result.updated})`);
       }
 
       let msg = `Imported: ${parts.join('; ')}`;
@@ -713,8 +688,12 @@ function bind(): void {
   });
 }
 
-window.addEventListener('pagehide', () => {
-  stopTotpTimer();
-  if (statusTimer != null) window.clearTimeout(statusTimer);
-}, { once: true });
+window.addEventListener(
+  'pagehide',
+  () => {
+    stopTotpTimer();
+    if (statusTimer != null) window.clearTimeout(statusTimer);
+  },
+  { once: true },
+);
 void reload();
