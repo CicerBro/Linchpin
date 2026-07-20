@@ -21,6 +21,7 @@ import {
 } from '../lib/reddit/subredditVisits';
 import { startNewCommentCounts } from '../lib/reddit/newCommentCount';
 import { startAccountMenu, type AccountMenuHandle } from '../lib/reddit/accountMenu';
+import { removeRedesignOptIn } from '../lib/reddit/removeRedesignOptIn';
 import { executeRedditLogin } from '../lib/accounts/redditLogin';
 import type { LinchpinMessage } from '../lib/accounts/messages';
 
@@ -151,11 +152,18 @@ export default defineContentScript({
       (root) => accountMenu?.process(root),
     );
 
+    const redesignOptInController = createRootController(
+      () => removeRedesignOptIn(document),
+      () => {},
+      (root) => removeRedesignOptIn(root),
+    );
+
     const mutationControllers: RootFeatureController[] = [
       tagsController,
       ignoreController,
       subredditController,
       accountController,
+      redesignOptInController,
     ];
 
     const batch = createMutationBatch((roots) => {
@@ -243,6 +251,9 @@ export default defineContentScript({
         for (const controller of mutationControllers) controller.process(document);
       }),
     );
+
+    // Always strip old Reddit's redesign beta opt-in; no setting gate.
+    redesignOptInController.start();
 
     void (async () => {
       [tags, settings, subredditVisits] = await Promise.all([

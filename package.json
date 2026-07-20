@@ -2,7 +2,7 @@
   "name": "linchpin",
   "description": "A lightweight personal browser toolkit for Reddit, search, media, JSON, and AI summaries.",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "scripts": {
     "dev": "wxt",
