@@ -8,9 +8,7 @@ Linchpin's JSON formatter adapts runtime behavior, interaction patterns, and vis
 - Retrieved/reviewed: 2026-07-19
 - License: BSD 3-Clause
 
-The adapted Linchpin files are `detect.ts`, `parse.ts`, `render.ts`, and `styles.ts` in this directory. Linchpin does not copy the upstream build system, manifest, popup, branding, analytics, or development dependencies. The runtime was ported to strict TypeScript and WXT; DOM output uses safe construction/text nodes; branches materialize lazily; controls use one delegated listener; input is capped at 10 MB; unsafe integer tokens are warned about; themes use CSS custom properties; and the formatter installs no observer after mounting.
-
-Callum Locke and the upstream contributors do not endorse Linchpin.
+The adapted Linchpin files are `detect.ts`, `parse.ts`, `render.ts`, and `styles.ts` in this directory. Linchpin does not copy the upstream build. This was a one-time pull. The runtime was ported to strict TypeScript and WXT; DOM output uses safe construction/text nodes; branches materialize lazily; controls use one delegated listener; input is capped at 10 MB; unsafe integer tokens are warned about; themes use CSS custom properties; and the formatter installs no observer after mounting.
 
 ## BSD 3-Clause License
 

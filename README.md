@@ -6,8 +6,6 @@
 
 Linchpin is a Manifest V3 extension for Chromium browsers and Firefox, built with [WXT](https://wxt.dev). It keeps ambient work site-scoped and event-driven; PiP and page summarization run only after a user action.
 
-Linchpin is not affiliated with Reddit, Google, YouTube, RES, Callum Locke, or any AI provider.
-
 ## Screenshot
 
 ![Linchpin popup](./public/icon/screenshot.png)
@@ -136,6 +134,6 @@ Inspect the generated Chromium and Firefox manifests after permission or entrypo
 
 ## Third-party code
 
-The JSON formatter adapts runtime behavior from Callum Locke’s json-formatter v0.8.0 (27aa995) under the BSD-3-Clause license. See [the formatter notices](lib/jsonFormatter/THIRD_PARTY_NOTICES.md) and source headers for attribution and Linchpin-specific changes. Mozilla Readability is used only during user-triggered summary extraction under its Apache-2.0 license. marked renders provider Markdown and DOMPurify sanitizes that rendered HTML before it is displayed or copied as rich text.
+The JSON formatter adapts runtime behavior from Callum Locke’s json-formatter under the BSD-3-Clause license. See [the formatter notices](lib/jsonFormatter/THIRD_PARTY_NOTICES.md) and source headers for attribution and Linchpin-specific changes.
 
 Linchpin's original code remains under the [WTFPL](LICENSE.md).
