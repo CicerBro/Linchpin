@@ -178,7 +178,7 @@ export async function renderProviderSettings(
     });
     onSettingsChanged?.(next);
     const label =
-      SUMMARY_STYLE_OPTIONS.find((item) => item.id === style)?.label.split(' — ')[0] || style;
+      SUMMARY_STYLE_OPTIONS.find((item) => item.id === style)?.label || style;
     modelStatus.textContent = `${label} default set to ${value}.`;
   };
 
@@ -233,9 +233,9 @@ export async function renderProviderSettings(
     heading,
     enabledLabel,
     labeled('Provider', provider),
-    labeled('Brief default', modelSelects.brief),
-    labeled('Bullets default', modelSelects.bullets),
-    labeled('Detailed default', modelSelects.detailed),
+    ...SUMMARY_STYLE_OPTIONS.map(({ id, label }) =>
+      labeled(`${label} default`, modelSelects[id]),
+    ),
     modelStatus,
     labeled('API key', key),
     warning,

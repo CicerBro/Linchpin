@@ -2,6 +2,11 @@ import type { ExtractedPage } from './types';
 
 export const MAX_SUMMARY_CHARACTERS = 80_000;
 
+function normalizePageLanguage(raw?: string | null): string | undefined {
+  const language = raw?.trim();
+  return language ? language.toUpperCase().slice(0, 64) : undefined;
+}
+
 type ReadabilityArticle = {
   title?: string;
   byline?: string;
@@ -64,7 +69,7 @@ export async function extractLivePageForSummary(): Promise<ExtractedPage | null>
       article?.byline?.trim() ||
       document.querySelector<HTMLMetaElement>('meta[name="author"]')?.content
     )?.slice(0, 500),
-    language: (article?.lang?.trim() || document.documentElement.lang || undefined)?.slice(0, 64),
+    language: normalizePageLanguage(article?.lang || document.documentElement.lang),
     excerpt: (article?.excerpt?.trim() || description)?.slice(0, 1000),
     content: text.slice(0, MAX_SUMMARY_CHARACTERS),
     originalLength: text.length,
@@ -134,7 +139,7 @@ export function capturePageSnapshot(): PageSnapshot {
     url: location.href.slice(0, 4096),
     site: location.hostname.replace(/^www\./, '').slice(0, 255),
     byline: document.querySelector<HTMLMetaElement>('meta[name="author"]')?.content?.slice(0, 500),
-    language: document.documentElement.lang?.slice(0, 64) || undefined,
+    language: normalizePageLanguage(document.documentElement.lang),
     excerpt: description?.slice(0, 1000),
   };
 }
@@ -178,7 +183,7 @@ export async function extractSnapshotWithReadability(
     url: snapshot.url,
     site: snapshot.site,
     byline: article?.byline?.trim().slice(0, 500) || snapshot.byline,
-    language: snapshot.language,
+    language: normalizePageLanguage(article?.lang || snapshot.language),
     excerpt: article?.excerpt?.trim().slice(0, 1000) || snapshot.excerpt,
     content: contentText.slice(0, MAX_SUMMARY_CHARACTERS),
     originalLength: text ? text.length : snapshot.structuredOriginalLength || contentText.length,
@@ -301,7 +306,7 @@ export function extractPageForSummary(): ExtractedPage {
     url: safeUrl,
     site,
     byline: byline || undefined,
-    language: (document.documentElement.lang || undefined)?.slice(0, 64),
+    language: normalizePageLanguage(document.documentElement.lang),
     excerpt: excerpt || undefined,
     content,
     originalLength,

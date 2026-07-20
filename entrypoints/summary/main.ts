@@ -219,8 +219,7 @@ async function render(): Promise<void> {
         `${extracted.content.length.toLocaleString()} characters${extracted.truncated ? ` (truncated from ${extracted.originalLength.toLocaleString()})` : ''}`,
       ],
     ];
-    if (extracted.byline) rows.push(['Byline', extracted.byline]);
-    if (extracted.language) rows.push(['Language', extracted.language]);
+    if (extracted.language) rows.push(['Language', extracted.language.trim().toUpperCase()]);
     for (const [term, value] of rows) {
       const item = element('div', { className: 'metadata-item' });
       item.append(element('dt', { text: term }), element('dd', { text: value }));
@@ -322,7 +321,7 @@ async function render(): Promise<void> {
       className: 'language-help',
       text: languageOverrideEnabled
         ? `This summary will be requested in ${summaryLanguage}.`
-        : `Automatic: use the article text and detected language${extracted?.language ? ` (${extracted.language})` : ''}.`,
+        : `Automatic: use the article text and detected language${extracted?.language ? ` (${extracted.language.trim().toUpperCase()})` : ''}.`,
     }),
   );
   controls.append(languageControls);
@@ -332,7 +331,7 @@ async function render(): Promise<void> {
     for (const { id, label } of SUMMARY_STYLE_OPTIONS) {
       const formatDefault = element('div', { className: 'format-default' });
       formatDefault.append(
-        element('dt', { text: label.split(' — ')[0] }),
+        element('dt', { text: label }),
         element('dd', { text: config.models[id] }),
       );
       defaults.append(formatDefault);
@@ -344,7 +343,7 @@ async function render(): Promise<void> {
   for (const { id, label } of SUMMARY_STYLE_OPTIONS) {
     const button = element('button', {
       className: 'primary summary-option',
-      text: label.split(' — ')[0],
+      text: label,
       type: 'button',
     });
     button.dataset.summaryStyle = id;
