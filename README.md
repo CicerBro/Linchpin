@@ -8,6 +8,10 @@ Linchpin is a Manifest V3 extension for Chromium browsers and Firefox, built wit
 
 Linchpin is not affiliated with Reddit, Google, YouTube, RES, Callum Locke, or any AI provider.
 
+## Screenshot
+
+![Linchpin popup](./public/icon/screenshot.png)
+
 ## Features
 
 | Area         | Features                                                                                                                                                                                                                 |
