@@ -49,6 +49,15 @@ function isProviderId(value: unknown): value is ProviderId {
   return typeof value === 'string' && PROVIDER_IDS.includes(value as ProviderId);
 }
 
+function readStyleModel(
+  source: Record<string, unknown> | undefined,
+  style: SummaryStyle,
+  fallback: string,
+): string {
+  const value = source?.[style];
+  return typeof value === 'string' && value.trim().length <= 160 ? value.trim() : fallback;
+}
+
 export async function getSummarizerConfig(): Promise<SummarizerConfig> {
   const stored = await browser.storage.local.get([PREFERENCES_KEY, API_KEYS_KEY]);
   const rawPreferences = stored[PREFERENCES_KEY];
@@ -73,20 +82,15 @@ export async function getSummarizerConfig(): Promise<SummarizerConfig> {
   const storedModels =
     record.models && typeof record.models === 'object' && !Array.isArray(record.models)
       ? (record.models as Record<string, unknown>)
-      : {};
+      : exportedPreferences?.models &&
+          typeof exportedPreferences.models === 'object' &&
+          !Array.isArray(exportedPreferences.models)
+        ? (exportedPreferences.models as Record<string, unknown>)
+        : {};
   const models: Record<SummaryStyle, string> = {
-    brief:
-      typeof storedModels.brief === 'string' && storedModels.brief.trim().length <= 160
-        ? storedModels.brief.trim()
-        : model,
-    bullets:
-      typeof storedModels.bullets === 'string' && storedModels.bullets.trim().length <= 160
-        ? storedModels.bullets.trim()
-        : model,
-    detailed:
-      typeof storedModels.detailed === 'string' && storedModels.detailed.trim().length <= 160
-        ? storedModels.detailed.trim()
-        : model,
+    brief: readStyleModel(storedModels, 'brief', model),
+    bullets: readStyleModel(storedModels, 'bullets', model),
+    detailed: readStyleModel(storedModels, 'detailed', model),
   };
   const apiKeys: Partial<Record<ProviderId, string>> = {};
   if (rawKeys && typeof rawKeys === 'object' && !Array.isArray(rawKeys)) {
@@ -139,4 +143,22 @@ export function publicSummarizerPreferences(config: SummarizerConfig): {
   models: Record<SummaryStyle, string>;
 } {
   return { provider: config.provider, model: config.model, models: config.models };
+}
+
+/** Restore provider + per-style models from an imported settings.summarizer block. */
+export async function applyExportedSummarizerPreferences(prefs: {
+  provider?: string;
+  model?: string;
+  models?: Partial<Record<SummaryStyle, string>>;
+}): Promise<void> {
+  if (!isProviderId(prefs.provider)) return;
+  const fallback = (prefs.model || DEFAULT_MODELS[prefs.provider]).trim().slice(0, 160);
+  const models: Record<SummaryStyle, string> = {
+    brief: (prefs.models?.brief || fallback).trim().slice(0, 160) || DEFAULT_MODELS[prefs.provider],
+    bullets:
+      (prefs.models?.bullets || fallback).trim().slice(0, 160) || DEFAULT_MODELS[prefs.provider],
+    detailed:
+      (prefs.models?.detailed || fallback).trim().slice(0, 160) || DEFAULT_MODELS[prefs.provider],
+  };
+  await saveSummarizerDefaults(prefs.provider, models);
 }

@@ -155,13 +155,17 @@ export function mergeThreadVisits(
   return mutate({ type: 'linchpin:storage', operation: 'merge-threads', value });
 }
 
-/** @deprecated Prefer buildLinchpinBackup — tags-only helper kept for callers. */
+/** Reddit-users-only export (labels, ignore, links, vote counts). Prefer buildLinchpinBackup for full backups. */
 export function buildSafeExport(tags: UserTagMap): {
   source: string;
   exportedAt: string;
-  tags: UserTagMap;
+  reddit: { users: UserTagMap };
 } {
-  return { source: 'linchpin', exportedAt: new Date().toISOString(), tags };
+  return {
+    source: 'linchpin',
+    exportedAt: new Date().toISOString(),
+    reddit: { users: tags },
+  };
 }
 
 /** Public account summary for UI lists (no secrets). */

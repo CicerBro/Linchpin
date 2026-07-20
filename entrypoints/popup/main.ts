@@ -1,7 +1,6 @@
 import 'tom-select/dist/css/tom-select.default.css';
 import './style.css';
 import {
-  buildSafeExport,
   deleteTag,
   getAccountStore,
   getAccountRecovery,
@@ -23,6 +22,11 @@ import {
 import type { AccountStore, Settings, StoredAccount, UserTag, UserTagMap } from '../../lib/types';
 import { parseResTagsText } from '../../lib/import/resTags';
 import { buildLinchpinBackup, parseLinchpinBackupText } from '../../lib/import/linchpinBackup';
+import {
+  applyExportedSummarizerPreferences,
+  getSummarizerConfig,
+  publicSummarizerPreferences,
+} from '../../lib/summarizer/config';
 import { ensureResSeedImported } from '../../lib/import/ensureSeed';
 import { maskSecret } from '../../lib/accounts/totp';
 import type { LinchpinMessage } from '../../lib/accounts/messages';
@@ -175,13 +179,13 @@ function importHtml(): string {
     <section class="panel import-panel">
       <p class="eyebrow">Portable and private</p>
       <h2>Import or export</h2>
-      <p class="help">Paste a Linchpin backup or a RES tag export. Merges tags/visits; replaces settings when present. <strong>Never includes account cookies or TOTP secrets.</strong></p>
-      <textarea id="import-json" rows="4" placeholder='{"settings":{…},"tags":{"username":{"text":"bot"}}}'></textarea>
+      <p class="help">Paste a Linchpin backup or a RES tag export. Merges Reddit users and visits; replaces settings when present. <strong>Never includes account cookies or TOTP secrets.</strong></p>
+      <textarea id="import-json" rows="4" placeholder='{"settings":{…},"reddit":{"users":{"username":{"label":"bot"}}}}'></textarea>
       <div class="actions">
         <button type="button" id="import-btn" class="primary">Import</button>
-        <button type="button" id="import-seed">Load seed tags</button>
+        <button type="button" id="import-seed">Load seed users</button>
         <button type="button" id="export-btn">Export Linchpin JSON</button>
-        <button type="button" id="export-tags-btn">Export tags only</button>
+        <button type="button" id="export-tags-btn">Export Reddit users only</button>
       </div>
     </section>
   `;
@@ -613,12 +617,13 @@ function bind(): void {
 
       if (parsed.settings) {
         settings = await replaceSettings(parsed.settings);
+        await applyExportedSummarizerPreferences(parsed.settings.summarizer);
         parts.push('settings');
       }
       if (parsed.tags) {
         const result = await mergeTags(parsed.tags);
         tags = await getTags();
-        parts.push(`tags (${result.added} added, ${result.updated} merged)`);
+        parts.push(`users (${result.added} added, ${result.updated} merged)`);
       }
       if (parsed.subredditVisits) {
         const result = await mergeSubredditVisits(parsed.subredditVisits);
@@ -657,9 +662,20 @@ function bind(): void {
   });
 
   document.querySelector('#export-btn')?.addEventListener('click', async () => {
+    const [currentSettings, summarizer] = await Promise.all([
+      getSettings(),
+      getSummarizerConfig(),
+    ]);
     const payload = buildLinchpinBackup({
       tags: await getTags(),
-      settings: await getSettings(),
+      settings: {
+        ...currentSettings,
+        summarizer: {
+          ...currentSettings.summarizer,
+          enabled: currentSettings.summarizer.enabled,
+          ...publicSummarizerPreferences(summarizer),
+        },
+      },
       subredditVisits: await getSubredditVisits(),
       threadVisits: await getThreadVisits(),
     });
@@ -675,16 +691,20 @@ function bind(): void {
   });
 
   document.querySelector('#export-tags-btn')?.addEventListener('click', () => {
-    const payload = buildSafeExport(tags);
+    const payload = {
+      source: 'linchpin',
+      exportedAt: new Date().toISOString(),
+      reddit: { users: tags },
+    };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: 'application/json',
     });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `linchpin-tags-${Date.now()}.json`;
+    a.download = `linchpin-reddit-users-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
-    setStatus('Tag export downloaded (no account secrets)');
+    setStatus('Reddit users export downloaded (no account secrets)');
   });
 }
 

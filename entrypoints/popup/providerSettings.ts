@@ -133,7 +133,7 @@ export async function renderProviderSettings(
       if (!sameDefaults(normalized, latest.models) || id !== latest.provider) {
         await saveSummarizerDefaults(id, normalized);
         const next = await updateSettings({
-          summarizer: { provider: id, model: normalized.brief },
+          summarizer: { provider: id, model: normalized.brief, models: normalized },
         });
         onSettingsChanged?.(next);
       }
@@ -163,7 +163,9 @@ export async function renderProviderSettings(
       detailed: fallback,
     };
     await saveSummarizerDefaults(id, defaults);
-    const next = await updateSettings({ summarizer: { provider: id, model: fallback } });
+    const next = await updateSettings({
+      summarizer: { provider: id, model: fallback, models: defaults },
+    });
     onSettingsChanged?.(next);
     await loadModels(id, defaults);
   });
@@ -174,7 +176,7 @@ export async function renderProviderSettings(
     selectedDefaults = { ...selectedDefaults, [style]: value };
     await saveSummarizerDefaults(id, selectedDefaults);
     const next = await updateSettings({
-      summarizer: { provider: id, model: selectedDefaults.brief },
+      summarizer: { provider: id, model: selectedDefaults.brief, models: selectedDefaults },
     });
     onSettingsChanged?.(next);
     const label =

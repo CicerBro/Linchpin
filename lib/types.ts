@@ -41,7 +41,14 @@ export type FeatureSettings = {
   summarizer: {
     enabled: boolean;
     provider: string;
+    /** Legacy/default alias — mirrors models.brief. */
     model: string;
+    /** Per summary-style model defaults (brief / bullets / detailed). */
+    models: {
+      brief: string;
+      bullets: string;
+      detailed: string;
+    };
   };
 };
 
@@ -84,7 +91,12 @@ export const DEFAULT_SETTINGS: FeatureSettings = {
   },
   google: { mapsButton: true, viewImage: true },
   youtube: { removeShorts: false },
-  summarizer: { enabled: true, provider: 'openai', model: '' },
+  summarizer: {
+    enabled: true,
+    provider: 'openai',
+    model: '',
+    models: { brief: '', bullets: '', detailed: '' },
+  },
 };
 
 export type RedditUiVersion = 'old' | 'new' | 'unknown';

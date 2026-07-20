@@ -88,11 +88,22 @@ export function normalizeSettings(raw: unknown): FeatureSettings {
     youtube: {
       removeShorts: bool(youtube.removeShorts, DEFAULT_SETTINGS.youtube.removeShorts),
     },
-    summarizer: {
-      enabled: bool(summarizer.enabled, DEFAULT_SETTINGS.summarizer.enabled),
-      provider: string(summarizer.provider, DEFAULT_SETTINGS.summarizer.provider, 40),
-      model: string(summarizer.model, DEFAULT_SETTINGS.summarizer.model, 120),
-    },
+    summarizer: (() => {
+      const provider = string(summarizer.provider, DEFAULT_SETTINGS.summarizer.provider, 40);
+      const model = string(summarizer.model, DEFAULT_SETTINGS.summarizer.model, 160);
+      const modelsRaw = object(summarizer.models);
+      const models = {
+        brief: string(modelsRaw.brief, model, 160),
+        bullets: string(modelsRaw.bullets, model, 160),
+        detailed: string(modelsRaw.detailed, model, 160),
+      };
+      return {
+        enabled: bool(summarizer.enabled, DEFAULT_SETTINGS.summarizer.enabled),
+        provider,
+        model: models.brief,
+        models,
+      };
+    })(),
   };
 }
 

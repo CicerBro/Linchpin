@@ -11,7 +11,7 @@ import {
   type UserTagMap,
 } from '../types';
 
-export const STORAGE_SCHEMA_VERSION = 3;
+export const STORAGE_SCHEMA_VERSION = 4;
 export const MAX_THREAD_VISITS = 5_000;
 export const MAX_SUBREDDIT_VISITS = 2_000;
 
