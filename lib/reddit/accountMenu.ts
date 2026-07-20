@@ -4,7 +4,7 @@ import { detectRedditUi } from './detect';
 import type { LinchpinMessage } from '../accounts/messages';
 
 const ROOT_ID = 'linchpin-account-switcher';
-const ACCOUNT_MENU_WIDTH = 284;
+const ACCOUNT_MENU_WIDTH = 260;
 
 async function send<T>(msg: LinchpinMessage): Promise<T> {
   return browser.runtime.sendMessage(msg) as Promise<T>;
@@ -410,39 +410,39 @@ function renderPanel(
         background: #fffdfb;
         color: #1a1917;
         border: 1px solid #ded7ce;
-        border-radius: 14px;
+        border-radius: 12px;
         box-shadow: 0 16px 40px rgba(28, 27, 25, 0.2), 0 2px 8px rgba(28, 27, 25, 0.08);
-        padding: 8px;
+        padding: 6px;
       }
       .head {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
-        padding: 8px 10px 10px;
+        gap: 10px;
+        padding: 6px 8px 8px;
       }
       .head-title {
         color: #514b44;
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 750;
-        line-height: 14px;
+        line-height: 12px;
         letter-spacing: 0.07em;
         text-transform: uppercase;
       }
       .head-count {
         color: #9a9289;
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 500;
-        line-height: 14px;
+        line-height: 12px;
       }
-      .list { display: flex; flex-direction: column; gap: 6px; }
+      .list { display: flex; flex-direction: column; gap: 4px; }
       .item {
         display: flex;
         flex-direction: column;
-        gap: 9px;
-        padding: 11px;
+        gap: 2px;
+        padding: 8px 9px;
         border: 1px solid #ebe5de;
-        border-radius: 10px;
+        border-radius: 8px;
         background: #fff;
       }
       .item.current {
@@ -453,25 +453,65 @@ function renderPanel(
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
+        gap: 8px;
       }
-      .meta { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+      .meta { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+      .row {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        min-width: 0;
+      }
       .label {
-        font-size: 14px;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        font: inherit;
+        font-size: 13px;
         font-weight: 700;
-        line-height: 18px;
+        line-height: 17px;
         color: #1a1917;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        text-align: left;
+      }
+      button.label {
+        cursor: pointer;
+        color: #8a3d14;
+      }
+      button.label:hover { text-decoration: underline; }
+      button.label:disabled {
+        opacity: 0.55;
+        cursor: default;
+        text-decoration: none;
+      }
+      .totp-link {
+        flex-shrink: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #7a746c;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 14px;
+        cursor: pointer;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      .totp-link:hover { color: #8a3d14; }
+      .totp-link:disabled {
+        opacity: 0.55;
+        cursor: default;
       }
       .sub {
         display: flex;
         align-items: center;
         min-width: 0;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 450;
-        line-height: 16px;
+        line-height: 14px;
         color: #7a746c;
       }
       .sub-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -479,58 +519,32 @@ function renderPanel(
       .sub.warn { color: #b3261e; }
       .badge {
         flex-shrink: 0;
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 700;
-        line-height: 14px;
-        padding: 3px 8px;
+        line-height: 12px;
+        padding: 2px 6px;
         border-radius: 999px;
         border: 1px solid #cfe8d4;
         background: #edf8ef;
         color: #246b35;
       }
-      .actions { display: flex; gap: 6px; flex-wrap: wrap; }
-      .action {
-        min-height: 30px;
-        padding: 6px 11px;
-        border-radius: 8px;
-        border: 1px solid #ddd6ce;
-        background: #fff;
-        color: #1a1917;
-        font-size: 12px;
-        font-weight: 650;
-        line-height: 16px;
-        cursor: pointer;
-        transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
-      }
-      .action:hover { border-color: #c9c0b7; background: #f7f4ef; }
-      .action:active { transform: translateY(1px); }
-      .action:focus-visible, .btn:focus-visible {
+      .label:focus-visible, .totp-link:focus-visible, .btn:focus-visible {
         outline: 2px solid rgba(196, 92, 38, 0.45);
         outline-offset: 2px;
       }
-      .action.primary {
-        border-color: #b85020;
-        background: #c45c26;
-        color: #fff;
-      }
-      .action.primary:hover { border-color: #9e4118; background: #ad4c1e; }
-      .action:disabled {
-        opacity: 0.55;
-        cursor: default;
-      }
       .empty {
-        padding: 14px 10px;
+        padding: 12px 8px;
         color: #7a746c;
-        font-size: 13px;
-        line-height: 18px;
+        font-size: 12px;
+        line-height: 16px;
       }
       .status {
-        margin: 8px 2px 2px;
-        padding: 9px 10px;
-        border-radius: 8px;
-        font-size: 12px;
+        margin: 6px 2px 2px;
+        padding: 7px 8px;
+        border-radius: 6px;
+        font-size: 11px;
         font-weight: 500;
-        line-height: 16px;
+        line-height: 14px;
         background: #f6f5f2;
         color: #5c574f;
       }
@@ -563,11 +577,20 @@ function renderPanel(
                     showUsername ? `u/${a.username}` : '',
                     isCurrent ? '' : hint,
                   ].filter(Boolean);
+                  const labelHtml = isCurrent
+                    ? `<span class="label">${escapeHtml(a.label)}</span>`
+                    : `<button type="button" class="label" data-switch="${escapeHtml(a.id)}" ${busy ? 'disabled' : ''}>${escapeHtml(a.label)}</button>`;
+                  const totpHtml = a.hasTotp
+                    ? `<button type="button" class="totp-link" data-totp="${escapeHtml(a.id)}" ${busy ? 'disabled' : ''}>Copy TOTP</button>`
+                    : '';
                   return `
                   <div class="item ${isCurrent ? 'current' : ''}" data-account="${escapeHtml(a.id)}">
                     <div class="top">
                       <div class="meta">
-                        <div class="label">${escapeHtml(a.label)}</div>
+                        <div class="row">
+                          ${labelHtml}
+                          ${totpHtml}
+                        </div>
                         ${
                           details.length
                             ? `<div class="sub ${expired ? 'warn' : ''}">${details
@@ -581,18 +604,6 @@ function renderPanel(
                       </div>
                       ${isCurrent ? '<span class="badge">Current</span>' : ''}
                     </div>
-                    ${
-                      isCurrent
-                        ? ''
-                        : `<div class="actions">
-                      <button type="button" class="action primary" data-switch="${escapeHtml(a.id)}" ${busy ? 'disabled' : ''}>Switch</button>
-                      ${
-                        a.hasTotp
-                          ? `<button type="button" class="action" data-totp="${escapeHtml(a.id)}" ${busy ? 'disabled' : ''}>Copy code</button>`
-                          : ''
-                      }
-                    </div>`
-                    }
                   </div>`;
                 })
                 .join('')
