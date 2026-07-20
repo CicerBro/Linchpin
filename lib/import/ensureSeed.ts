@@ -7,15 +7,20 @@ const seedImportedItem = storage.defineItem<boolean>('local:resSeedImported', {
 });
 
 export type SeedImportResult =
-  | { status: 'skipped'; reason: 'already-imported' | 'tags-present' }
+  | { status: 'skipped'; reason: 'already-imported' | 'tags-present' | 'not-chromium' }
   | { status: 'imported'; added: number; updated: number }
   | { status: 'error'; error: string };
 
 /**
  * One-shot import of bundled RES seed when Linchpin has no tags yet.
+ * Chromium builds only — the seed comes from Chrome/Brave LevelDB export.
  * Safe to call from background + popup; never overwrites existing tags.
  */
 export async function ensureResSeedImported(): Promise<SeedImportResult> {
+  if (import.meta.env.BROWSER === 'firefox') {
+    return { status: 'skipped', reason: 'not-chromium' };
+  }
+
   if (await seedImportedItem.getValue()) {
     return { status: 'skipped', reason: 'already-imported' };
   }
