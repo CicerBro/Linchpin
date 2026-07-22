@@ -1,6 +1,8 @@
 import { isSupportedGoogleHost } from './hosts';
 
 const MAPS_CONTROL_ID = 'linchpin-google-maps-link';
+const MAPS_PREVIEW_ATTR = 'data-linchpin-ui';
+const MAPS_PREVIEW_VALUE = 'google-maps-preview';
 
 function currentSearchQuery(): string | null {
   if (!isSupportedGoogleHost(location.hostname)) return null;
@@ -28,15 +30,7 @@ function findTabExample(): HTMLAnchorElement | null {
 
 function removeGoogleInteractionMetadata(root: Element): void {
   for (const element of [root, ...root.querySelectorAll('*')]) {
-    for (const attribute of [
-      'id',
-      'jsname',
-      'jsaction',
-      'data-hveid',
-      'data-ved',
-      'aria-current',
-      'aria-disabled',
-    ]) {
+    for (const attribute of ['id', 'jsname', 'jsaction', 'data-hveid', 'data-ved', 'aria-current', 'aria-disabled']) {
       element.removeAttribute(attribute);
     }
   }
@@ -44,9 +38,7 @@ function removeGoogleInteractionMetadata(root: Element): void {
 
 function replaceTabLabel(link: HTMLAnchorElement, label: string): void {
   const descendants = [...link.querySelectorAll<HTMLElement>('*')];
-  const leaf = descendants.findLast(
-    (element) => element.childElementCount === 0 && Boolean(element.textContent?.trim()),
-  );
+  const leaf = descendants.findLast((element) => element.childElementCount === 0 && Boolean(element.textContent?.trim()));
   if (leaf) leaf.textContent = label;
   else link.textContent = label;
 }
@@ -61,8 +53,7 @@ function cloneTabAfter(example: HTMLAnchorElement, href: string): HTMLAnchorElem
   const clone = source.cloneNode(true) as HTMLElement;
   removeGoogleInteractionMetadata(clone);
 
-  const link =
-    clone instanceof HTMLAnchorElement ? clone : clone.querySelector<HTMLAnchorElement>('a');
+  const link = clone instanceof HTMLAnchorElement ? clone : clone.querySelector<HTMLAnchorElement>('a');
   if (!link) return null;
   link.id = MAPS_CONTROL_ID;
   link.href = href;
@@ -79,11 +70,40 @@ function mapsUrl(query: string): string {
   return url.href;
 }
 
-export function removeMapsButton(): void {
-  document.getElementById(MAPS_CONTROL_ID)?.remove();
+/** Knowledge-panel map preview (`#lu_map`) is wrapped in an empty `<a>`; give it the Maps URL. */
+function findMapPreviewAnchors(): HTMLAnchorElement[] {
+  const anchors = new Set<HTMLAnchorElement>();
+  for (const map of document.querySelectorAll('#lu_map')) {
+    const anchor = map.closest('a');
+    if (anchor instanceof HTMLAnchorElement) anchors.add(anchor);
+  }
+  for (const marked of document.querySelectorAll<HTMLAnchorElement>(`a[${MAPS_PREVIEW_ATTR}="${MAPS_PREVIEW_VALUE}"]`)) {
+    anchors.add(marked);
+  }
+  return [...anchors];
 }
 
-/** Idempotently creates or updates the Maps search tab. */
+function updateMapPreviewLinks(href: string | null): void {
+  for (const anchor of findMapPreviewAnchors()) {
+    if (!href) {
+      if (anchor.getAttribute(MAPS_PREVIEW_ATTR) !== MAPS_PREVIEW_VALUE) continue;
+      anchor.removeAttribute('href');
+      anchor.removeAttribute(MAPS_PREVIEW_ATTR);
+      anchor.style.removeProperty('cursor');
+      continue;
+    }
+    if (anchor.href !== href) anchor.href = href;
+    anchor.setAttribute(MAPS_PREVIEW_ATTR, MAPS_PREVIEW_VALUE);
+    if (!anchor.style.cursor) anchor.style.cursor = 'pointer';
+  }
+}
+
+export function removeMapsButton(): void {
+  document.getElementById(MAPS_CONTROL_ID)?.remove();
+  updateMapPreviewLinks(null);
+}
+
+/** Idempotently creates or updates the Maps search tab and knowledge-panel map preview. */
 export function updateMapsButton(enabled: boolean): void {
   const query = enabled ? currentSearchQuery() : null;
   if (!query) {
@@ -92,6 +112,8 @@ export function updateMapsButton(enabled: boolean): void {
   }
 
   const nextUrl = mapsUrl(query);
+  updateMapPreviewLinks(nextUrl);
+
   const example = findTabExample();
   const existing = document.getElementById(MAPS_CONTROL_ID) as HTMLAnchorElement | null;
   if (existing) {

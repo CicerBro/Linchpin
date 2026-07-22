@@ -138,7 +138,7 @@ function toolSettingsHtml(): string {
       </div>
       <div class="setting-list">
         ${settingRow({ id: 'enableJson', title: 'JSON formatter', description: 'Turn raw JSON documents into a collapsible tree.', checked: settings.jsonFormatter.enabled })}
-        ${settingRow({ id: 'enableMaps', title: 'Google Maps link', description: 'Restore Maps in Google search navigation.', checked: settings.google.mapsButton })}
+        ${settingRow({ id: 'enableMaps', title: 'Google Maps link', description: 'Restore Maps in Google search navigation and make the knowledge-panel map preview clickable.', checked: settings.google.mapsButton })}
         ${settingRow({ id: 'enableViewImage', title: 'Google View Image', description: 'Add direct image links to search previews.', checked: settings.google.viewImage })}
         ${settingRow({ id: 'enableShorts', title: 'Remove YouTube Shorts', description: 'Hide Shorts shelves and navigation entries.', checked: settings.youtube.removeShorts })}
       </div>
